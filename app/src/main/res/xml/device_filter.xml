@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Common USB-serial bridges plus the RP2040 native USB CDC.
+     The app also accepts any CDC-ACM device at runtime regardless of this list. -->
+<resources>
+    <!-- Raspberry Pi RP2040 (TinyUSB / Arduino-pico CDC) -->
+    <usb-device vendor-id="11914" />            <!-- 0x2E8A Raspberry Pi -->
+    <!-- FTDI -->
+    <usb-device vendor-id="1027" />             <!-- 0x0403 -->
+    <!-- Silicon Labs CP210x -->
+    <usb-device vendor-id="4292" />             <!-- 0x10C4 -->
+    <!-- WCH CH340/CH341 -->
+    <usb-device vendor-id="6790" />             <!-- 0x1A86 -->
+    <!-- Prolific PL2303 -->
+    <usb-device vendor-id="1659" />             <!-- 0x067B -->
+    <!-- Arduino / generic CDC -->
+    <usb-device vendor-id="9025" />             <!-- 0x2341 -->
+</resources>

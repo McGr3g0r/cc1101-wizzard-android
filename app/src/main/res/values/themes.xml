@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App shell theme; Compose draws the actual UI. -->
+    <style name="Theme.CC1101Wizzard" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/graphite</item>
+        <item name="android:navigationBarColor">@color/graphite</item>
+        <item name="android:windowBackground">@color/graphite</item>
+    </style>
+
+    <!-- Splash: graphite background, white title drawn in Compose. -->
+    <style name="Theme.CC1101Wizzard.Splash" parent="Theme.CC1101Wizzard">
+        <item name="android:windowBackground">@color/graphite</item>
+    </style>
+</resources>

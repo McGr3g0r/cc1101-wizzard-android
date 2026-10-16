@@ -1,0 +1,121 @@
+package com.wizzard.cc1101.ui
+
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.wizzard.cc1101.AppViewModel
+
+private val TAB_TITLES = listOf("Monitor", "Protocol", "TX", "cc1101")
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(vm: AppViewModel) {
+    val context = LocalContext.current
+    var showCloseDialog by remember { mutableStateOf(false) }
+
+    // Back: close the settings screen first; otherwise ask about the monitor.
+    BackHandler(enabled = true) {
+        when {
+            vm.showSettings -> vm.showSettings = false
+            vm.monitorRunning -> showCloseDialog = true
+            else -> (context as? Activity)?.finish()
+        }
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            Column {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            if (vm.showSettings) "Konfiguracja" else "cc1101-wizzard",
+                            fontFamily = FontFamily.Monospace, fontSize = 18.sp,
+                        )
+                    },
+                    navigationIcon = {
+                        if (vm.showSettings) {
+                            IconButton(onClick = { vm.showSettings = false }) {
+                                Icon(Icons.Default.ArrowBack, "wstecz")
+                            }
+                        }
+                    },
+                    actions = {
+                        if (!vm.showSettings) {
+                            IconButton(onClick = { vm.showSettings = true }) {
+                                Icon(Icons.Default.Settings, "konfiguracja")
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    ),
+                )
+                if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (!vm.showSettings) {
+                    ScrollableTabRow(
+                        selectedTabIndex = vm.selectedTab,
+                        containerColor = MaterialTheme.colorScheme.background,
+                        edgePadding = 8.dp,
+                    ) {
+                        TAB_TITLES.forEachIndexed { i, title ->
+                            Tab(
+                                selected = vm.selectedTab == i,
+                                onClick = { vm.selectedTab = i },
+                                text = { Text(title, fontSize = 13.sp) },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            if (vm.showSettings) {
+                ConfigTab(vm)
+            } else when (vm.selectedTab) {
+                0 -> MainTab(vm)
+                1 -> InterpretTab(vm)
+                2 -> TxTab(vm)
+                3 -> Cc1101Tab(vm)
+            }
+        }
+    }
+
+    if (showCloseDialog) {
+        AlertDialog(
+            onDismissRequest = { showCloseDialog = false },
+            title = { Text("Monitor jest włączony") },
+            text = { Text("Zatrzymać monitor na RP2040 przed zamknięciem aplikacji?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.stopMonitor()
+                    showCloseDialog = false
+                    (context as? Activity)?.finish()
+                }) { Text("Zatrzymaj i wyjdź") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showCloseDialog = false
+                        (context as? Activity)?.finish()
+                    }) { Text("Wyjdź bez zatrzymywania") }
+                    TextButton(onClick = { showCloseDialog = false }) { Text("Anuluj") }
+                }
+            },
+        )
+    }
+}
