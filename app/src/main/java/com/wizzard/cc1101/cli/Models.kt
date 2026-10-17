@@ -3,6 +3,10 @@ package com.wizzard.cc1101.cli
 /** Kind of a line shown in the main log, driving its colour. */
 enum class LogKind { TX, RX, MONITOR, ERROR, ECHO, INFO }
 
+/** Format a log line's epoch-millis timestamp as `HH:mm:ss.SSS` (local time). */
+fun logTimestamp(ms: Long): String =
+    java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US).format(java.util.Date(ms))
+
 /** One line in the main-tab log. */
 data class LogLine(
     val id: Long,

@@ -44,8 +44,12 @@ object ProtocolTemplates {
         },
         Template("somfy", "Somfy RTS (OOK, Manchester)") {
             listOf(
-                ProtoField("bits", "Bity ramki", "0".repeat(56), FieldType.BITS),
-                ProtoField("te", "Pół-takt Te [us]", "640", FieldType.DEC),
+                ProtoField("code0", "Code0 (32-bit)", "0x00000000", FieldType.HEX),
+                ProtoField("code1", "Code1 (32-bit)", "0x00000000", FieldType.HEX),
+                ProtoField("code3", "Code3 (24-bit)", "0x000000", FieldType.HEX),
+                ProtoField("next_code", "Next code (0-12)", "0", FieldType.TICKER, min = 0, max = 12),
+                ProtoField("te", "Half-bit Te [us]", "640", FieldType.DEC),
+                ProtoField("len", "Frame bits", "81", FieldType.DEC, editable = false),
             )
         },
         Template("db200", "DB200 (4-bit OOK)") {
@@ -56,8 +60,8 @@ object ProtocolTemplates {
         },
         Template("manchester", "Manchester (bazowy, OOK)") {
             listOf(
-                ProtoField("bits", "Bity", "10101010", FieldType.BITS),
-                ProtoField("te", "Pół-takt Te [us]", "320", FieldType.DEC),
+                ProtoField("bits", "Bits", "10101010", FieldType.BITS),
+                ProtoField("te", "Half-bit Te [us]", "320", FieldType.DEC),
             )
         },
         Template("generic_fsk", "Generic FSK (hex)") {

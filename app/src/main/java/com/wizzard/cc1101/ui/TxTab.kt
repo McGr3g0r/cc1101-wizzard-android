@@ -18,10 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wizzard.cc1101.AppViewModel
+import com.wizzard.cc1101.R
 import com.wizzard.cc1101.cli.ConnState
 import com.wizzard.cc1101.ui.theme.*
 import java.io.File
@@ -47,10 +49,10 @@ fun TxTab(vm: AppViewModel) {
 
         // ---- radio setup: profile + frequency ----
         SectionCard("Radio") {
-            Text("Profil", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.tx_profile_label), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 if (vm.profiles.isEmpty()) {
-                    Text("— brak profili (pobierz w Konfiguracji)", fontSize = 12.sp,
+                    Text(stringResource(R.string.tx_no_profiles), fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 vm.profiles.forEach { name ->
@@ -62,12 +64,12 @@ fun TxTab(vm: AppViewModel) {
             Spacer(Modifier.height(8.dp))
             FrequencySelector(vm)
             Spacer(Modifier.height(6.dp))
-            Text("interfejs: ${vm.selectedIface}", fontSize = 12.sp,
+            Text(stringResource(R.string.tx_interface) + ": ${vm.selectedIface}", fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         // ---- compose & transmit a protocol from scratch ----
-        SectionCard("Nadaj protokół") {
+        SectionCard(stringResource(R.string.tx_transmit_protocol)) {
             ProtocolPicker(vm)
             val cid = vm.composeId
             if (cid != null) {
@@ -75,14 +77,7 @@ fun TxTab(vm: AppViewModel) {
                 Spacer(Modifier.height(6.dp))
                 tpl?.defaults()?.forEach { f ->
                     val value = vm.composeValues[f.key] ?: f.value
-                    OutlinedTextField(
-                        value = value,
-                        onValueChange = { vm.updateComposeField(f.key, it) },
-                        label = { Text(f.label) },
-                        singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                    )
+                    ProtoFieldRow(f, value, editable = true, onChange = { vm.updateComposeField(f.key, it) })
                 }
                 Spacer(Modifier.height(8.dp))
                 RepeatTicker(vm.txRepeat, onChange = { vm.updateTxRepeat(it) })
@@ -96,20 +91,20 @@ fun TxTab(vm: AppViewModel) {
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = Color.Black,
                         ),
-                    ) { Icon(Icons.Default.Send, null); Spacer(Modifier.width(6.dp)); Text("Nadaj ${if (vm.txRepeat > 1) "×${vm.txRepeat}" else ""}") }
+                    ) { Icon(Icons.Default.Send, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.tx_transmit_btn) + " ${if (vm.txRepeat > 1) "×${vm.txRepeat}" else ""}") }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(onClick = { vm.openComposeInProtocol() }) {
-                        Icon(Icons.Default.Science, null); Spacer(Modifier.width(6.dp)); Text("Edytuj w Protocol")
+                        Icon(Icons.Default.Science, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.tx_edit_in_protocol))
                     }
                 }
             } else {
-                Text("Wybierz protokół, aby pojawiły się pola do wypełnienia.",
+                Text(stringResource(R.string.tx_pick_protocol_hint),
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
         // ---- signal source: disk browser (File + SAF) + single-file SAF + saved packets ----
-        SectionCard("Źródło sygnału") {
+        SectionCard(stringResource(R.string.tx_signal_source)) {
             // quick File-mode roots (app data/, app-ext, device storage)
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 vm.browseRoots().forEach { root ->
@@ -122,20 +117,19 @@ fun TxTab(vm: AppViewModel) {
             Spacer(Modifier.height(4.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = { vm.browseUp() }) {
-                    Icon(Icons.Default.ArrowUpward, null); Spacer(Modifier.width(4.dp)); Text("W górę")
+                    Icon(Icons.Default.ArrowUpward, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.tx_up))
                 }
                 Spacer(Modifier.width(8.dp))
                 OutlinedButton(onClick = { openTree.launch(null) }) {
-                    Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(4.dp)); Text("Wybierz folder…")
+                    Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.tx_choose_folder))
                 }
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = { openDoc.launch(arrayOf("*/*")) }) {
-                    Icon(Icons.Default.FileOpen, null); Spacer(Modifier.width(4.dp)); Text("Otwórz .sub…")
+                    Icon(Icons.Default.FileOpen, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.tx_open_sub))
                 }
             }
             Text(
-                "Na Androidzie 11+ pliki .sub w katalogach współdzielonych (np. Pobrane) " +
-                    "są widoczne dopiero po „Wybierz folder…”.",
+                stringResource(R.string.tx_saf_hint),
                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
@@ -147,7 +141,7 @@ fun TxTab(vm: AppViewModel) {
             // directory listing (bounded height so the tab stays usable)
             Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
                 if (vm.browseItems.isEmpty()) {
-                    Text("Pusto lub brak dostępu.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Text(stringResource(R.string.tx_empty_or_no_access), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 } else {
                     vm.browseItems.forEach { item ->
                         BrowseRow(item) { vm.loadBrowseItem(item) }
@@ -157,12 +151,12 @@ fun TxTab(vm: AppViewModel) {
 
             if (vm.savedPackets.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                Text("…lub z zapisanych pakietów (data/):", fontSize = 12.sp,
+                Text(stringResource(R.string.tx_or_from_saved), fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 vm.savedPackets.forEach { s ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(s.name, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                        TextButton(onClick = { vm.loadTxFromSaved(s) }) { Text("Załaduj") }
+                        TextButton(onClick = { vm.loadTxFromSaved(s) }) { Text(stringResource(R.string.tx_load)) }
                     }
                 }
             }
@@ -174,18 +168,18 @@ fun TxTab(vm: AppViewModel) {
         // ---- visualization + send ----
         val sig = vm.txSignal
         if (sig == null) {
-            SectionCard("Podgląd") {
-                Text("Załaduj sygnał, aby zobaczyć podgląd i nadać.",
+            SectionCard(stringResource(R.string.tx_preview)) {
+                Text(stringResource(R.string.tx_load_signal_hint),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            SectionCard("Podgląd: ${sig.label}") {
+            SectionCard(stringResource(R.string.tx_preview) + ": ${sig.label}") {
                 if (sig.pulses != null) {
-                    Text("OOK • ${sig.pulses.size} impulsów", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    Text("OOK • ${sig.pulses.size} " + stringResource(R.string.tx_pulses_word), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     ZoomableWaveform(sig.pulses)
                 } else if (sig.hex != null) {
-                    Text("Pakiet (FSK) • ${sig.hex.length / 2} B", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    Text(stringResource(R.string.tx_fsk_packet) + " • ${sig.hex.length / 2} B", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(6.dp))
                     Text(sig.hex, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -194,7 +188,7 @@ fun TxTab(vm: AppViewModel) {
                 Spacer(Modifier.height(10.dp))
                 if (sig.pulses != null) {
                     OutlinedButton(onClick = { vm.interpretTxSignal() }) {
-                        Icon(Icons.Default.Science, null); Spacer(Modifier.width(6.dp)); Text("Interpretuj")
+                        Icon(Icons.Default.Science, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.btn_interpret))
                     }
                 }
 
@@ -206,7 +200,9 @@ fun TxTab(vm: AppViewModel) {
                 var applyRadio by remember { mutableStateOf(true) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = applyRadio, onCheckedChange = { applyRadio = it })
-                    Text("Ustaw częstotliwość (${"%.3f".format(vm.txFreqHz / 1_000_000.0)} MHz) przed wysłaniem",
+                    Text(stringResource(R.string.tx_set_freq_1) +
+                        " (${"%.3f".format(vm.txFreqHz / 1_000_000.0)} MHz) " +
+                        stringResource(R.string.tx_set_freq_2),
                         fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(8.dp))
@@ -217,13 +213,13 @@ fun TxTab(vm: AppViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Default.Send, null); Spacer(Modifier.width(6.dp))
-                    Text("Wyślij ${if (vm.txRepeat > 1) "×${vm.txRepeat}" else ""}")
+                    Text(stringResource(R.string.tx_send_btn) + " ${if (vm.txRepeat > 1) "×${vm.txRepeat}" else ""}")
                 }
                 if (!connected) {
-                    Text("Połącz i zweryfikuj urządzenie, aby nadawać.",
+                    Text(stringResource(R.string.tx_connect_to_send),
                         fontSize = 11.sp, color = ColorError, modifier = Modifier.padding(top = 4.dp))
                 } else if (locked) {
-                    Text("Monitor aktywny — zatrzymaj go, aby nadawać.",
+                    Text(stringResource(R.string.tx_monitor_active_hint),
                         fontSize = 11.sp, color = ColorError, modifier = Modifier.padding(top = 4.dp))
                 }
             }
@@ -260,7 +256,7 @@ private fun ProtocolPicker(vm: AppViewModel) {
     Box {
         OutlinedButton(onClick = { expanded = true }) {
             Icon(Icons.Default.Memory, null); Spacer(Modifier.width(6.dp))
-            Text(current ?: "Wybierz protokół…")
+            Text(current ?: stringResource(R.string.tx_pick_protocol_dropdown))
             Icon(Icons.Default.ArrowDropDown, null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -279,7 +275,7 @@ private fun FrequencySelector(vm: AppViewModel) {
     var expanded by remember { mutableStateOf(false) }
     val label = vm.txFrequencies.firstOrNull { it.second == vm.txFreqHz }?.first
         ?: "%.3f MHz".format(vm.txFreqHz / 1_000_000.0)
-    Text("Częstotliwość", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(R.string.tx_frequency), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Box {
         OutlinedButton(onClick = { expanded = true }) {
             Icon(Icons.Default.Tune, null); Spacer(Modifier.width(6.dp)); Text(label)
@@ -296,9 +292,9 @@ private fun FrequencySelector(vm: AppViewModel) {
 @Composable
 private fun RepeatTicker(value: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Powtórzenia (1–100)", Modifier.weight(1f), fontSize = 13.sp)
+        Text(stringResource(R.string.tx_repeat_label), Modifier.weight(1f), fontSize = 13.sp)
         OutlinedIconButton(onClick = { onChange(value - 1) }, enabled = value > 1) {
-            Icon(Icons.Default.Remove, "mniej")
+            Icon(Icons.Default.Remove, stringResource(R.string.cd_decrease))
         }
         Text(
             value.toString(),
@@ -307,33 +303,21 @@ private fun RepeatTicker(value: Int, onChange: (Int) -> Unit) {
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         OutlinedIconButton(onClick = { onChange(value + 1) }, enabled = value < 100) {
-            Icon(Icons.Default.Add, "więcej")
+            Icon(Icons.Default.Add, stringResource(R.string.cd_increase))
         }
     }
 }
 
-/** Inter-frame gap stepper (±50 ms). Default value comes from Konfiguracja. */
+/** Inter-frame gap: direct ms entry (1 ms precision) + 1 ms nudge buttons. */
 @Composable
 private fun GapStepper(valueMs: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("Odstęp między pakietami", fontSize = 13.sp)
-            Text("domyślnie z Konfiguracji", fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        OutlinedIconButton(onClick = { onChange(valueMs - 50) }, enabled = valueMs > 0) {
-            Icon(Icons.Default.Remove, "mniej")
-        }
-        Text(
-            "$valueMs ms",
-            Modifier.widthIn(min = 64.dp).padding(horizontal = 8.dp),
-            fontFamily = FontFamily.Monospace, fontSize = 16.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-        OutlinedIconButton(onClick = { onChange(valueMs + 50) }, enabled = valueMs < 10000) {
-            Icon(Icons.Default.Add, "więcej")
-        }
-    }
+    MsStepper(
+        label = stringResource(R.string.tx_gap_label),
+        sub = stringResource(R.string.tx_gap_sub),
+        valueMs = valueMs,
+        onChange = onChange,
+        step = 1,
+    )
 }
 
 /**
@@ -350,14 +334,14 @@ private fun ZoomableWaveform(us: IntArray) {
 
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Zoom ${"%.1f".format(zoom)}× — przesuwaj palcem w poziomie", fontSize = 11.sp,
+            Text("Zoom ${"%.1f".format(zoom)}× — " + stringResource(R.string.tx_zoom_drag_hint), fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             OutlinedIconButton(onClick = { zoom = (zoom / 1.5f).coerceAtLeast(1f) }) {
-                Icon(Icons.Default.ZoomOut, "pomniejsz")
+                Icon(Icons.Default.ZoomOut, stringResource(R.string.cd_zoom_out))
             }
             Spacer(Modifier.width(6.dp))
             OutlinedIconButton(onClick = { zoom = (zoom * 1.5f).coerceAtMost(40f) }) {
-                Icon(Icons.Default.ZoomIn, "powiększ")
+                Icon(Icons.Default.ZoomIn, stringResource(R.string.cd_zoom_in))
             }
         }
         Spacer(Modifier.height(6.dp))

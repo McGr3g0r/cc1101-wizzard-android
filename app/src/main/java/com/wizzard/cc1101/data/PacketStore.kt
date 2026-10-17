@@ -47,6 +47,7 @@ class PacketStore(context: Context) {
                 put("value", f.value)
                 put("type", f.type.name)
                 put("editable", f.editable)
+                if (f.min != 0 || f.max != 0) { put("min", f.min); put("max", f.max) }
             })
         }
         obj.put("fields", arr)
@@ -115,6 +116,8 @@ class PacketStore(context: Context) {
                     type = runCatching { FieldType.valueOf(fo.optString("type", "TEXT")) }
                         .getOrDefault(FieldType.TEXT),
                     editable = fo.optBoolean("editable", true),
+                    min = fo.optInt("min", 0),
+                    max = fo.optInt("max", 0),
                 )
             )
         }

@@ -23,25 +23,50 @@ object KeeLoqCodec {
         val guardUs: Int,
     )
 
+    /** Decode result with fit metrics for dynamic scoring. */
+    data class DecodeResult(
+        val bits: IntArray,
+        val meanTickErr: Double,   // mean fractional-tick jitter over data pulses (0 best)
+        val separator: Boolean,    // trailing inter-frame gap seen on the final bit
+        val exact: Boolean,        // true if nbits recovered without emulating a final bit
+    )
+
     /** Decode a capture into its on-air bit list (LSB-first order), or null. */
-    fun decode(us: IntArray, f: Framing): IntArray? {
+    fun decode(us: IntArray, f: Framing): IntArray? = decodeResult(us, f)?.bits
+
+    /** Decode and also report fit metrics (timing jitter, separator, exactness). */
+    fun decodeResult(us: IntArray, f: Framing): DecodeResult? {
         if (us.size < f.preamble + f.nbits) return null
         val base = OokDecoding.dominantBaseBand(us, f.baseLo, f.baseHi, f.baseFallback)
         if (base <= 0) return null
         fun t(i: Int) = OokDecoding.ticks(us[i], base)
 
-        var i = 0; var pre = 0
-        while (i < us.size) {
-            if (t(i) in 0..1) { pre++; if (pre == f.preamble) { i++; break } } else pre = 0
-            i++
-        }
-        if (pre < f.preamble) return null
+        var i = 0
         if (f.headerLo > 0) {
+            // Header-framed (HCS): consume the whole run of short preamble pulses —
+            // however many there are — then require the header gap. Real captures
+            // vary in preamble length (and the monitor may start mid-preamble), so
+            // we tolerate a shorter/longer run rather than demanding exactly N.
+            var pre = 0
+            while (i < us.size && t(i) in 0..1) { pre++; i++ }
+            // The header gap + 66 exact PWM bit-pairs are a strong signature, so a
+            // few preamble pulses are enough (captures may start mid-preamble).
+            if (pre < 6) return null
             if (i >= us.size || t(i) !in f.headerLo..f.headerHi) return null
             i++
+        } else {
+            // No header (Nice Flor-S): the first data bit can also start short, so
+            // the preamble/data boundary is only defined by the exact pulse count.
+            var pre = 0
+            while (i < us.size) {
+                if (t(i) in 0..1) { pre++; if (pre == f.preamble) { i++; break } } else pre = 0
+                i++
+            }
+            if (pre < f.preamble) return null
         }
 
         val bits = ArrayList<Int>(f.nbits)
+        var errSum = 0.0; var errN = 0; var separator = false
         while (i + 1 < us.size && bits.size < f.nbits) {
             val p0 = t(i); val p1 = t(i + 1)
             // mid-frame p1 is always 1 or 2 ticks; p1 >= 3 means the trailing
@@ -51,11 +76,20 @@ object KeeLoqCodec {
                 p0 == 1 && (p1 == 2 || p1 >= 3) -> bits.add(1)
                 else -> return null
             }
+            errSum += OokDecoding.tickError(us[i], base); errN++        // HIGH pulse jitter
+            if (p1 >= 3) separator = true                               // trailing gap, not a data low
+            else { errSum += OokDecoding.tickError(us[i + 1], base); errN++ }
             i += 2
         }
-        if (bits.size == f.nbits - 1) bits.add(0)   // emulate a missing final bit
+        var exact = true
+        if (bits.size == f.nbits - 1) { bits.add(0); exact = false }    // emulate a missing final bit
         if (bits.size < f.nbits) return null
-        return IntArray(f.nbits) { bits[it] }
+        return DecodeResult(
+            IntArray(f.nbits) { bits[it] },
+            if (errN > 0) errSum / errN else 0.5,
+            separator,
+            exact,
+        )
     }
 
     /** Encode a bit list back into a pulse-train (same framing). */

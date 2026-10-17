@@ -13,10 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wizzard.cc1101.AppViewModel
+import com.wizzard.cc1101.R
 import com.wizzard.cc1101.cli.ConnState
 import com.wizzard.cc1101.ui.theme.*
 
@@ -33,12 +35,12 @@ fun ConfigTab(vm: AppViewModel) {
         if (vm.monitorRunning) MonitorLockBanner()
 
         // ---- settings ----
-        SectionCard("Ustawienia") {
+        SectionCard(stringResource(R.string.cfg_settings)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Znakuj pakiety pozycją GPS", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.cfg_gps_title), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "Gdy włączone, zapis odebranego pakietu dołącza współrzędne GPS do pliku.",
+                        stringResource(R.string.cfg_gps_desc),
                         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -54,7 +56,7 @@ fun ConfigTab(vm: AppViewModel) {
                 )
             }
             if (vm.gpsEnabled && !vm.hasLocationPermission()) {
-                Text("Brak uprawnienia do lokalizacji — przyznaj je, aby zapisywać GPS.",
+                Text(stringResource(R.string.cfg_gps_no_perm),
                     fontSize = 11.sp, color = ColorError, modifier = Modifier.padding(top = 4.dp))
             }
 
@@ -63,8 +65,8 @@ fun ConfigTab(vm: AppViewModel) {
             // ---- auto-reconnect ----
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Automatyczne wznawianie połączenia", style = MaterialTheme.typography.bodyMedium)
-                    Text("Po nieoczekiwanym rozłączeniu aplikacja sama spróbuje połączyć się z RP2040 ponownie.",
+                    Text(stringResource(R.string.cfg_autoreconnect_title), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.cfg_autoreconnect_desc),
                         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Checkbox(checked = vm.autoReconnect, onCheckedChange = { vm.updateAutoReconnect(it) })
@@ -73,8 +75,8 @@ fun ConfigTab(vm: AppViewModel) {
             HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
 
             // ---- colour template ----
-            Text("Szablon kolorystyczny", style = MaterialTheme.typography.bodyMedium)
-            Text("Zmienia paletę całej aplikacji.", fontSize = 11.sp,
+            Text(stringResource(R.string.cfg_theme_title), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.cfg_theme_desc), fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
             Row(Modifier.horizontalScroll(rememberScrollState())) {
@@ -86,45 +88,55 @@ fun ConfigTab(vm: AppViewModel) {
             HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
 
             // ---- TX repeat gap ----
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Odstęp między powtórzeniami (TX)", style = MaterialTheme.typography.bodyMedium)
-                    Text("Pauza wstawiana między kolejnymi nadaniami pakietu.",
-                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                OutlinedIconButton(onClick = { vm.updateConfigGapMs(vm.configGapMs - 50) }, enabled = vm.configGapMs > 0) {
-                    Icon(Icons.Default.Remove, "mniej")
-                }
-                Text("${vm.configGapMs} ms",
-                    Modifier.widthIn(min = 72.dp).padding(horizontal = 8.dp),
-                    fontFamily = FontFamily.Monospace, fontSize = 16.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                OutlinedIconButton(onClick = { vm.updateConfigGapMs(vm.configGapMs + 50) }, enabled = vm.configGapMs < 10000) {
-                    Icon(Icons.Default.Add, "więcej")
-                }
-            }
+            MsStepper(
+                label = stringResource(R.string.cfg_gap_title),
+                sub = stringResource(R.string.cfg_gap_desc),
+                valueMs = vm.configGapMs,
+                onChange = { vm.updateConfigGapMs(it) },
+                step = 1,
+            )
+        }
+
+        // ---- OOK monitor capture window ----
+        SectionCard(stringResource(R.string.cfg_capture_title)) {
+            Text(stringResource(R.string.cfg_capture_desc), fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            MsStepper(
+                label = stringResource(R.string.cfg_capture_min),
+                sub = null,
+                valueMs = vm.captureMinUs,
+                onChange = { vm.updateCaptureMinUs(it) },
+                step = 10, max = 2000, unit = "µs",
+            )
+            Spacer(Modifier.height(6.dp))
+            MsStepper(
+                label = stringResource(R.string.cfg_capture_gap),
+                sub = null,
+                valueMs = vm.captureGapUs,
+                onChange = { vm.updateCaptureGapUs(it) },
+                step = 100, max = 60000, unit = "µs",
+            )
         }
 
         // ---- USB device selection ----
-        SectionCard("Urządzenie USB (115200 8N1)") {
+        SectionCard(stringResource(R.string.cfg_usb_title)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Wykryte adaptery", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.cfg_detected_adapters), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { vm.refreshDrivers() }) {
-                    Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(4.dp)); Text("Skanuj")
+                    Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.cfg_scan))
                 }
             }
             if (vm.drivers.isEmpty()) {
-                Text("Brak urządzeń. Podłącz RP2040 przez USB-OTG.",
+                Text(stringResource(R.string.cfg_no_devices),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             } else {
                 vm.drivers.forEachIndexed { i, d ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(vm.describe(d), Modifier.weight(1f),
                             fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                        Button(onClick = { vm.connect(d) }, enabled = !connected) { Text("Połącz") }
+                        Button(onClick = { vm.connect(d) }, enabled = !connected) { Text(stringResource(R.string.cfg_connect)) }
                     }
                 }
             }
@@ -132,16 +144,16 @@ fun ConfigTab(vm: AppViewModel) {
             ConnectionIndicator(vm.conn, vm.connectedName)
             Spacer(Modifier.height(6.dp))
             Row {
-                OutlinedButton(onClick = { vm.verify() }, enabled = connected && !vm.monitorRunning) { Text("Sprawdź") }
+                OutlinedButton(onClick = { vm.verify() }, enabled = connected && !vm.monitorRunning) { Text(stringResource(R.string.cfg_check)) }
                 Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = { vm.disconnect() }, enabled = connected) { Text("Rozłącz") }
+                OutlinedButton(onClick = { vm.disconnect() }, enabled = connected) { Text(stringResource(R.string.cfg_disconnect)) }
             }
         }
 
         // ---- radio interface selection ----
-        SectionCard("Wybór radia (interfejs)") {
+        SectionCard(stringResource(R.string.cfg_radio_select)) {
             if (vm.ifaces.isEmpty()) {
-                Text("Użyj „Sprawdź”, aby pobrać listę interfejsów (radio list).",
+                Text(stringResource(R.string.cfg_use_check_hint),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState())) {
@@ -150,10 +162,11 @@ fun ConfigTab(vm: AppViewModel) {
                     }
                 }
             } else {
+                val absentSuffix = stringResource(R.string.cfg_iface_absent)
                 Row(Modifier.horizontalScroll(rememberScrollState())) {
                     vm.ifaces.forEach { ifc ->
                         Pill(
-                            "${ifc.name}${if (ifc.present) "" else " (brak)"}",
+                            "${ifc.name}${if (ifc.present) "" else " $absentSuffix"}",
                             selected = vm.selectedIface == ifc.name,
                             onClick = { vm.selectedIface = ifc.name },
                         )
@@ -161,29 +174,29 @@ fun ConfigTab(vm: AppViewModel) {
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Text("aktywny: ${vm.selectedIface}", fontSize = 12.sp,
+            Text(stringResource(R.string.cfg_active) + ": ${vm.selectedIface}", fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         // ---- profiles management ----
-        SectionCard("Profile radiowe (edycja w zakładce cc1101)") {
+        SectionCard(stringResource(R.string.cfg_profiles_title)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Zapisane profile", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.cfg_saved_profiles), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { vm.loadProfiles() }, enabled = connected && !vm.monitorRunning) { Text("Odśwież") }
-                TextButton(onClick = { vm.newProfileDraft(); vm.selectedTab = 3; vm.showSettings = false }, enabled = connected && !vm.monitorRunning) { Text("Nowy") }
+                TextButton(onClick = { vm.loadProfiles() }, enabled = connected && !vm.monitorRunning) { Text(stringResource(R.string.btn_refresh)) }
+                TextButton(onClick = { vm.newProfileDraft(); vm.selectedTab = 3; vm.showSettings = false }, enabled = connected && !vm.monitorRunning) { Text(stringResource(R.string.btn_new)) }
             }
             if (vm.profiles.isEmpty()) {
-                Text("Brak profili lub nie pobrano listy.",
+                Text(stringResource(R.string.cfg_no_profiles),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             } else {
                 vm.profiles.forEach { name ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(name, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                        TextButton(onClick = { vm.openProfile(name); vm.selectedTab = 3; vm.showSettings = false }, enabled = !vm.monitorRunning) { Text("Edytuj") }
-                        TextButton(onClick = { vm.applyProfile(name) }, enabled = !vm.monitorRunning) { Text("Zastosuj") }
+                        TextButton(onClick = { vm.openProfile(name); vm.selectedTab = 3; vm.showSettings = false }, enabled = !vm.monitorRunning) { Text(stringResource(R.string.cfg_edit)) }
+                        TextButton(onClick = { vm.applyProfile(name) }, enabled = !vm.monitorRunning) { Text(stringResource(R.string.cfg_apply)) }
                         IconButton(onClick = { vm.deleteProfile(name) }, enabled = !vm.monitorRunning) {
-                            Icon(Icons.Default.Delete, "usuń", tint = ColorError)
+                            Icon(Icons.Default.Delete, stringResource(R.string.cd_delete), tint = ColorError)
                         }
                     }
                 }
@@ -191,15 +204,14 @@ fun ConfigTab(vm: AppViewModel) {
         }
 
         // ---- analyzers info ----
-        SectionCard("Analizatory protokołów (wtyczki)") {
+        SectionCard(stringResource(R.string.cfg_analyzers_title)) {
             com.wizzard.cc1101.protocol.AnalyzerRegistry.all().forEach { a ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                     Text("• ${a.displayName}", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
             Text(
-                "Nowe implementacje dodaje się przez AnalyzerRegistry.register(...) " +
-                    "(interfejs ProtocolAnalyzer).",
+                stringResource(R.string.cfg_analyzers_hint),
                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp),
             )

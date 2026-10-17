@@ -1,4 +1,179 @@
 <resources>
+    <!-- Brand / launcher (not translated) -->
     <string name="app_name">cc1101-wizzard</string>
     <string name="splash_title">cc1101-wizzard</string>
+
+    <!-- Top bar / navigation -->
+    <string name="settings_title">Settings</string>
+    <string name="cd_back">Back</string>
+
+    <!-- Shared buttons / content descriptions -->
+    <string name="btn_clear">Clear</string>
+    <string name="btn_refresh">Refresh</string>
+    <string name="btn_new">New</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_interpret">Interpret</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_disconnect">Disconnect</string>
+    <string name="btn_verify_device">Verify device</string>
+    <string name="btn_apply_on">Apply on</string>
+    <string name="btn_clear_fields">Clear</string>
+    <string name="cd_decrease">less</string>
+    <string name="cd_increase">more</string>
+    <string name="cd_zoom_in">zoom in</string>
+    <string name="cd_zoom_out">zoom out</string>
+    <string name="cd_transmit">transmit</string>
+    <string name="cd_delete">delete</string>
+    <string name="cd_export">export</string>
+    <string name="cd_expand">expand</string>
+    <string name="cd_collapse">collapse</string>
+
+    <!-- Connection indicator -->
+    <string name="conn_disconnected">Disconnected</string>
+    <string name="conn_connecting">Connecting…</string>
+    <string name="conn_connected_unverified">Connected (not verified)</string>
+    <string name="conn_verified">Verified</string>
+    <string name="conn_wrong_device">Wrong device</string>
+    <string name="conn_error">Error</string>
+
+    <!-- Monitor lock banner -->
+    <string name="monitor_lock_banner">Monitor is running — commands to the device are locked. Stop the monitor to edit the radio or transmit.</string>
+
+    <!-- Main (Monitor) tab -->
+    <string name="sec_connection">Connection</string>
+    <string name="radios_label">radios</string>
+    <string name="profile_label">Profile:</string>
+    <string name="profile_none_hint">(no profile — fetch in Settings)</string>
+    <string name="log_title">Log</string>
+    <string name="log_save">Save</string>
+    <string name="vm_log_saved">Log saved: %1$s</string>
+    <string name="vm_log_save_failed">Saving the log failed (cannot write to the chosen folder)</string>
+    <string name="vm_log_empty">Log is empty — nothing to save</string>
+
+    <!-- Monitor-running exit dialog -->
+    <string name="monitor_running_title">Monitor is running</string>
+    <string name="monitor_close_question">The monitor is still running. Stop it before leaving the app?</string>
+    <string name="stop_and_exit">Stop and exit</string>
+    <string name="exit_without_stopping">Exit without stopping</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- cc1101 tab -->
+    <string name="cc_connect_hint">Connect to the device (Monitor tab) to edit the radio.</string>
+    <string name="cc_modulation">Modulation</string>
+    <string name="cc_current">current</string>
+    <string name="cc_quick_params">Parameters (quick edit)</string>
+    <string name="cc_full_state">Full radio state</string>
+    <string name="lbl_value">value</string>
+    <string name="cc_profiles">Radio profiles</string>
+    <string name="lbl_profile_name">Profile name</string>
+    <string name="lbl_profile_lines">Profile lines (one radio command per line)</string>
+
+    <!-- TX tab -->
+    <string name="tx_profile_label">Profile</string>
+    <string name="tx_no_profiles">— no profiles (fetch in Settings)</string>
+    <string name="tx_interface">interface</string>
+    <string name="tx_transmit_protocol">Transmit protocol</string>
+    <string name="tx_transmit_btn">Transmit</string>
+    <string name="tx_edit_in_protocol">Edit in Protocol</string>
+    <string name="tx_pick_protocol_hint">Pick a protocol to show the fields to fill in.</string>
+    <string name="tx_signal_source">Signal source</string>
+    <string name="tx_up">Up</string>
+    <string name="tx_choose_folder">Choose folder…</string>
+    <string name="tx_open_sub">Open .sub…</string>
+    <string name="tx_saf_hint">On Android 11+, .sub files in shared folders (e.g. Downloads) are only visible after \"Choose folder…\".</string>
+    <string name="tx_empty_or_no_access">Empty or no access.</string>
+    <string name="tx_or_from_saved">…or from saved packets (data/):</string>
+    <string name="tx_load">Load</string>
+    <string name="tx_preview">Preview</string>
+    <string name="tx_load_signal_hint">Load a signal to see the preview and transmit.</string>
+    <string name="tx_pulses_word">pulses</string>
+    <string name="tx_fsk_packet">Packet (FSK)</string>
+    <string name="tx_set_freq_1">Set frequency</string>
+    <string name="tx_set_freq_2">before sending</string>
+    <string name="tx_send_btn">Send</string>
+    <string name="tx_connect_to_send">Connect and verify the device to transmit.</string>
+    <string name="tx_monitor_active_hint">Monitor active — stop it to transmit.</string>
+    <string name="tx_pick_protocol_dropdown">Pick a protocol…</string>
+    <string name="tx_frequency">Frequency</string>
+    <string name="tx_repeat_label">Repeat (1–100)</string>
+    <string name="tx_gap_label">Inter-frame gap</string>
+    <string name="tx_gap_sub">default from Settings</string>
+    <string name="tx_zoom_drag_hint">drag horizontally to pan</string>
+
+    <!-- Protocol (Interpret) tab -->
+    <string name="ip_empty_hint">Open this tab by tapping a monitor line (Monitor) or by picking a protocol to transmit in the TX tab.</string>
+    <string name="ip_compose_title">Transmit protocol</string>
+    <string name="ip_tx_prefix">Transmit:</string>
+    <string name="ip_tx_every">every</string>
+    <string name="ip_tx_hint_suffix">(set repeat/gap in the TX tab / Settings)</string>
+    <string name="ip_transmit_on">Transmit on</string>
+    <string name="ip_connect_to_tx">Connect the device to transmit.</string>
+    <string name="ip_captured_packet">Captured packet</string>
+    <string name="ip_matched_protocols">Matched protocols</string>
+    <string name="ip_no_matches">No matches.</string>
+    <string name="ip_best_match">best</string>
+    <string name="ip_fields_title">Fields (codes / counters)</string>
+    <string name="ip_transmit">Transmit</string>
+    <string name="ip_transmit_raw">Transmit raw capture</string>
+    <string name="ip_on_iface">on</string>
+    <string name="vm_raw_ook_only">Raw replay is available only for OOK captures</string>
+    <string name="ip_tx_mode_hint">OOK is sent as pulses play; FSK as \"send\" in the current modulation — apply a matching profile in the cc1101 tab first.</string>
+    <string name="ip_save_filename">File name in data/</string>
+    <string name="ip_save_to_data">Save to data/</string>
+    <string name="ip_saved_packets">Saved packets (data/)</string>
+    <string name="ip_no_saved">No saved packets.</string>
+    <string name="ip_export_hint">Export (↥) copies the .json + .txt to a folder you choose (e.g. Downloads), outside the app.</string>
+    <string name="vm_export_ok">Exported: %1$s (.json + .txt)</string>
+    <string name="vm_export_failed">Export failed (cannot write to the chosen folder)</string>
+
+    <!-- Settings (Config) tab -->
+    <string name="cfg_settings">Settings</string>
+    <string name="cfg_gps_title">Tag packets with GPS position</string>
+    <string name="cfg_gps_desc">When enabled, saving a received packet attaches GPS coordinates to the file.</string>
+    <string name="cfg_gps_no_perm">No location permission — grant it to save GPS.</string>
+    <string name="cfg_autoreconnect_title">Automatic reconnect</string>
+    <string name="cfg_autoreconnect_desc">After an unexpected disconnect the app will try to reconnect to the RP2040 by itself.</string>
+    <string name="cfg_theme_title">Colour theme</string>
+    <string name="cfg_theme_desc">Changes the palette of the whole app.</string>
+    <string name="cfg_gap_title">Inter-frame gap (TX)</string>
+    <string name="cfg_gap_desc">Pause inserted between consecutive transmissions of a packet.</string>
+    <string name="cfg_capture_title">OOK capture (monitor)</string>
+    <string name="cfg_capture_desc">Frame detection for OOK captures: the shortest pulse kept (trims runts) and the LOW gap that ends a frame. Set the gap just above the longest LOW inside a frame and below the gap between repeats, so one capture = one complete frame. Needs firmware build 2+ (ignored by older firmware).</string>
+    <string name="cfg_capture_min">Min pulse</string>
+    <string name="cfg_capture_gap">Frame gap</string>
+    <string name="cfg_usb_title">USB device (115200 8N1)</string>
+    <string name="cfg_detected_adapters">Detected adapters</string>
+    <string name="cfg_scan">Scan</string>
+    <string name="cfg_no_devices">No devices. Connect the RP2040 over USB-OTG.</string>
+    <string name="cfg_connect">Connect</string>
+    <string name="cfg_check">Check</string>
+    <string name="cfg_disconnect">Disconnect</string>
+    <string name="cfg_radio_select">Radio selection (interface)</string>
+    <string name="cfg_use_check_hint">Use \"Check\" to fetch the interface list (radio list).</string>
+    <string name="cfg_iface_absent">(absent)</string>
+    <string name="cfg_active">active</string>
+    <string name="cfg_profiles_title">Radio profiles (edited in the cc1101 tab)</string>
+    <string name="cfg_saved_profiles">Saved profiles</string>
+    <string name="cfg_no_profiles">No profiles, or the list has not been fetched.</string>
+    <string name="cfg_edit">Edit</string>
+    <string name="cfg_apply">Apply</string>
+    <string name="cfg_analyzers_title">Protocol analyzers (plugins)</string>
+    <string name="cfg_analyzers_hint">New implementations are added via AnalyzerRegistry.register(…) (the ProtocolAnalyzer interface).</string>
+
+    <!-- ViewModel / CLI runtime messages (log + errors) -->
+    <string name="vm_cannot_read_file">Cannot read file: %1$s</string>
+    <string name="vm_unsupported_file">Unsupported file: %1$s</string>
+    <string name="vm_no_pulses_in">No pulse data in: %1$s</string>
+    <string name="vm_no_pulses_in_sample">No pulse data in the sample</string>
+    <string name="vm_cannot_build_frame_from">Cannot build a frame from: %1$s</string>
+    <string name="vm_cannot_build_frame_for">cannot build a frame for %1$s</string>
+    <string name="vm_interpret_ook_only">Interpretation is available only for OOK signals</string>
+    <string name="vm_no_signal_loaded">No signal loaded</string>
+    <string name="vm_autoreconnect_attempt">auto-reconnect: attempting to resume the connection…</string>
+    <string name="vm_gps_no_fix">GPS enabled but no position (no permission or fix) — saved without coordinates</string>
+    <string name="vm_dir_unreadable">Directory not readable (permissions). Use \"Choose folder…\".</string>
+    <string name="vm_cannot_open_folder">Cannot open folder</string>
+    <string name="cli_monitor_locked">monitor active — stop the monitor to send commands</string>
+    <string name="fw_packet_too_long">packet too long for the device command buffer (%1$d&gt;%2$d chars)</string>
 </resources>

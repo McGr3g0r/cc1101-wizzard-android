@@ -10,10 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wizzard.cc1101.AppViewModel
+import com.wizzard.cc1101.R
 
 private val TAB_TITLES = listOf("Monitor", "Protocol", "TX", "cc1101")
 
@@ -39,21 +41,21 @@ fun MainScreen(vm: AppViewModel) {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            if (vm.showSettings) "Konfiguracja" else "cc1101-wizzard",
+                            if (vm.showSettings) stringResource(R.string.settings_title) else "cc1101-wizzard",
                             fontFamily = FontFamily.Monospace, fontSize = 18.sp,
                         )
                     },
                     navigationIcon = {
                         if (vm.showSettings) {
                             IconButton(onClick = { vm.showSettings = false }) {
-                                Icon(Icons.Default.ArrowBack, "wstecz")
+                                Icon(Icons.Default.ArrowBack, stringResource(R.string.cd_back))
                             }
                         }
                     },
                     actions = {
                         if (!vm.showSettings) {
                             IconButton(onClick = { vm.showSettings = true }) {
-                                Icon(Icons.Default.Settings, "konfiguracja")
+                                Icon(Icons.Default.Settings, stringResource(R.string.settings_title))
                             }
                         }
                     },
@@ -98,22 +100,22 @@ fun MainScreen(vm: AppViewModel) {
     if (showCloseDialog) {
         AlertDialog(
             onDismissRequest = { showCloseDialog = false },
-            title = { Text("Monitor jest włączony") },
-            text = { Text("Zatrzymać monitor na RP2040 przed zamknięciem aplikacji?") },
+            title = { Text(stringResource(R.string.monitor_running_title)) },
+            text = { Text(stringResource(R.string.monitor_close_question)) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.stopMonitor()
                     showCloseDialog = false
                     (context as? Activity)?.finish()
-                }) { Text("Zatrzymaj i wyjdź") }
+                }) { Text(stringResource(R.string.stop_and_exit)) }
             },
             dismissButton = {
                 Row {
                     TextButton(onClick = {
                         showCloseDialog = false
                         (context as? Activity)?.finish()
-                    }) { Text("Wyjdź bez zatrzymywania") }
-                    TextButton(onClick = { showCloseDialog = false }) { Text("Anuluj") }
+                    }) { Text(stringResource(R.string.exit_without_stopping)) }
+                    TextButton(onClick = { showCloseDialog = false }) { Text(stringResource(R.string.cancel)) }
                 }
             },
         )

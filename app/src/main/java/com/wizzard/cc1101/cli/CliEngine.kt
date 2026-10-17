@@ -1,6 +1,8 @@
 package com.wizzard.cc1101.cli
 
+import android.content.Context
 import android.hardware.usb.UsbDevice
+import com.wizzard.cc1101.R
 import com.wizzard.cc1101.serial.SerialManager
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong
 class CliEngine(
     private val serial: SerialManager,
     private val scope: CoroutineScope,
+    private val appContext: Context,
 ) : SerialManager.Listener {
 
     data class CmdResult(val command: String, val ok: Boolean, val lines: List<String>)
@@ -81,7 +84,7 @@ class CliEngine(
     /** Enqueue a CLI command (without trailing newline). Suspends until done. */
     suspend fun send(command: String, timeoutMs: Long = 4000, silent: Boolean = false): CmdResult {
         if (blockWhileMonitor && !isMonitorControl(command)) {
-            val msg = "monitor aktywny — zatrzymaj monitor, aby wysyłać komendy"
+            val msg = appContext.getString(R.string.cli_monitor_locked)
             emit(LogKind.ERROR, "⛔ $command — $msg")
             return CmdResult(command, false, listOf(msg))
         }
@@ -227,4 +230,11 @@ class CliEngine(
     private fun emit(kind: LogKind, text: String, packet: CapturedPacket? = null) {
         onLog?.invoke(LogLine(ids.incrementAndGet(), kind, text, packet = packet))
     }
+
+    /**
+     * Emit an app-originated log line through the same monotonic id counter used
+     * for device traffic, so every [LogLine.id] in the log is unique (duplicate
+     * ids would crash the LazyColumn that keys on them).
+     */
+    fun log(kind: LogKind, text: String) = emit(kind, text)
 }

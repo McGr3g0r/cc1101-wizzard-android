@@ -26,29 +26,47 @@ object OokDecoding {
     /**
      * Decode a PWM-style train (EV1527 / PT2262 family) into a bit string.
      * bit 0 = HIGH short + LOW long ; bit 1 = HIGH long + LOW short.
-     * Stops at the first ambiguous or sync-gap pair.
+     *
+     * Real captures usually carry a sync/pilot pair (a short HIGH followed by a
+     * very long LOW gap, ~24-31x the base time) and several repeats of the frame.
+     * The firmware grabs from the first HIGH after idle, so the pilot often lands
+     * at the very start — a naive decoder that stops at the first long LOW would
+     * then return zero bits. Instead we split the train on those gaps, decode
+     * each segment independently, and return the segment that best matches a
+     * frame (closest to 24 bits), so a leading pilot or a trailing partial repeat
+     * no longer defeats the decode.
      */
     fun decodePwm(us: IntArray, t: Timing): String {
-        if (t.shortUs == 0) return ""
-        val bits = StringBuilder()
+        if (t.shortUs == 0 || us.size < 4) return ""
+        val gap = t.shortUs * 6          // >= this LOW ends a frame (pilot / inter-frame)
+        val segments = ArrayList<String>()
+        val cur = StringBuilder()
+        fun flush() { if (cur.isNotEmpty()) { segments.add(cur.toString()); cur.setLength(0) } }
+
         var i = 0
-        // skip a leading long LOW (trailing sync of a previous frame) if the
-        // train happens to start on a gap
         while (i + 1 < us.size) {
             val hi = us[i]
             val lo = us[i + 1]
-            // sync gap: very long low ends the frame
-            if (lo > t.shortUs * 10) break
+            if (lo >= gap) {             // sync/pilot pair: ends the current frame
+                flush(); i += 2; continue
+            }
             val hiShort = hi < t.threshold
             val loShort = lo < t.threshold
             when {
-                hiShort && !loShort -> bits.append('0')
-                !hiShort && loShort -> bits.append('1')
-                else -> break // ambiguous
+                hiShort && !loShort -> cur.append('0')
+                !hiShort && loShort -> cur.append('1')
+                else -> { flush(); i += 2; continue } // noise/boundary: resync (keeps parity)
             }
             i += 2
         }
-        return bits.toString()
+        flush()
+        if (segments.isEmpty()) return ""
+        // Prefer a plausible frame (20..26 bits, peaking at 24); otherwise the
+        // longest segment we found.
+        return segments.maxByOrNull { seg ->
+            val len = seg.length
+            if (len in 20..26) 1000 - abs(24 - len) else len.coerceAtMost(19)
+        } ?: ""
     }
 
     /**
@@ -65,6 +83,60 @@ object OokDecoding {
         }
         if (appendSync) { out.add(te); out.add(te * 31) }
         return out.toIntArray()
+    }
+
+    /**
+     * One PWM frame candidate: its bits, whether it ended at a sync gap, and the
+     * mean timing jitter of the pulses it consumed (fractional ticks off the
+     * nearest integer multiple of Te — 0 = perfect, up to 0.5 = on the boundary).
+     */
+    data class PwmFrame(val bits: String, val gapTerminated: Boolean, val meanTickErr: Double)
+
+    /** Fractional distance of a duration from the nearest whole Te tick, 0..0.5. */
+    fun tickError(durUs: Int, teUs: Int): Double {
+        if (teUs <= 0) return 0.5
+        val q = durUs.toDouble() / teUs
+        return kotlin.math.abs(q - kotlin.math.round(q)).coerceIn(0.0, 0.5)
+    }
+
+    /**
+     * Like [decodePwm] but returns every frame found between sync gaps, each
+     * flagged with whether it was actually terminated by a gap (the inter-frame
+     * separator) rather than by running out of samples or hitting noise. A
+     * fixed-length protocol (e.g. EV1527's 24 bits) should require BOTH the exact
+     * bit count AND gapTerminated — that is how the original RP2040 firmware told
+     * a real frame from the leading bits of a longer, different protocol.
+     */
+    fun decodePwmFrames(us: IntArray, t: Timing): List<PwmFrame> {
+        if (t.shortUs == 0 || us.size < 2) return emptyList()
+        val gap = t.shortUs * 6
+        val frames = ArrayList<PwmFrame>()
+        val cur = StringBuilder()
+        var errSum = 0.0; var errN = 0
+        fun flush(gapTerm: Boolean) {
+            if (cur.isNotEmpty()) {
+                frames.add(PwmFrame(cur.toString(), gapTerm, if (errN > 0) errSum / errN else 0.5))
+                cur.setLength(0)
+            }
+            errSum = 0.0; errN = 0
+        }
+        var i = 0
+        while (i + 1 < us.size) {
+            val hi = us[i]; val lo = us[i + 1]
+            if (lo >= gap) { flush(true); i += 2; continue }   // sync / inter-frame separator
+            val hiShort = hi < t.threshold
+            val loShort = lo < t.threshold
+            when {
+                hiShort && !loShort -> cur.append('0')
+                !hiShort && loShort -> cur.append('1')
+                else -> { flush(false); i += 2; continue }     // noise/boundary, not a clean gap
+            }
+            // accumulate timing jitter for this bit's two pulses (ideal 1 and 3 ticks)
+            errSum += tickError(hi, t.shortUs) + tickError(lo, t.shortUs); errN += 2
+            i += 2
+        }
+        flush(false)                                           // ran out of samples
+        return frames
     }
 
     fun bitsToLong(bits: String): Long {

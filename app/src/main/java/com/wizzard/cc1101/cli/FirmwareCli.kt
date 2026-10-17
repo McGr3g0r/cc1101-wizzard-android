@@ -1,12 +1,15 @@
 package com.wizzard.cc1101.cli
 
+import android.content.Context
+import com.wizzard.cc1101.R
+
 /**
  * Firmware-specific command helpers, built on top of [CliEngine]. Everything
  * here maps 1:1 onto the v2 CLI grammar (radio / profile / monitor), and keeps
  * each transmitted line within the firmware's 80-char command buffer
  * (CMD_MAX_BUFFER_LEN in settings.h).
  */
-class FirmwareCli(private val engine: CliEngine) {
+class FirmwareCli(private val engine: CliEngine, private val appContext: Context) {
 
     companion object {
         /**
@@ -158,8 +161,21 @@ class FirmwareCli(private val engine: CliEngine) {
 
     // ---- monitor --------------------------------------------------------
 
-    suspend fun monitorStart(iface: String, profile: String, json: Boolean = true) =
-        engine.send("monitor start $iface $profile ${if (json) "json" else "hex"}", timeoutMs = 5000)
+    /**
+     * Start the monitor. [minUs]/[maxGapUs] (both > 0) are the OOK capture
+     * window parameters added in firmware build 2 — the shortest pulse kept and
+     * the inter-frame gap that ends a frame. Appended as
+     * `monitor start <if> <profile> json <minUs> <maxGapUs>`; omitted (<= 0) they
+     * fall back to the firmware defaults for compatibility with older builds.
+     */
+    suspend fun monitorStart(
+        iface: String, profile: String, json: Boolean = true,
+        minUs: Int = 0, maxGapUs: Int = 0,
+    ): CliEngine.CmdResult {
+        val fmt = if (json) "json" else "hex"
+        val extra = if (minUs > 0 && maxGapUs > 0) " $minUs $maxGapUs" else ""
+        return engine.send("monitor start $iface $profile $fmt$extra", timeoutMs = 5000)
+    }
 
     suspend fun monitorStop() = engine.send("monitor stop")
     suspend fun monitorStatus() = engine.send("monitor status")
@@ -171,7 +187,7 @@ class FirmwareCli(private val engine: CliEngine) {
         val cmd = "radio $iface send ${hex.lowercase()}"
         if (cmd.length > MAX_CMD_LEN) {
             return CliEngine.CmdResult(cmd, false,
-                listOf("pakiet za długi dla bufora komend urządzenia (${cmd.length}>${MAX_CMD_LEN} znaków)"))
+                listOf(appContext.getString(R.string.fw_packet_too_long, cmd.length, MAX_CMD_LEN)))
         }
         return engine.send(cmd)
     }

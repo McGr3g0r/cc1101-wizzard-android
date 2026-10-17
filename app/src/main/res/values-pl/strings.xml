@@ -1,0 +1,175 @@
+<resources>
+    <!-- Top bar / navigation -->
+    <string name="settings_title">Ustawienia</string>
+    <string name="cd_back">Wstecz</string>
+
+    <!-- Shared buttons / content descriptions -->
+    <string name="btn_clear">Wyczyść</string>
+    <string name="btn_refresh">Odśwież</string>
+    <string name="btn_new">Nowy</string>
+    <string name="btn_delete">Usuń</string>
+    <string name="btn_save">Zapisz</string>
+    <string name="btn_interpret">Interpretuj</string>
+    <string name="btn_connect">Połącz</string>
+    <string name="btn_disconnect">Rozłącz</string>
+    <string name="btn_verify_device">Zweryfikuj urządzenie</string>
+    <string name="btn_apply_on">Zastosuj na</string>
+    <string name="btn_clear_fields">Wyczyść</string>
+    <string name="cd_decrease">mniej</string>
+    <string name="cd_increase">więcej</string>
+    <string name="cd_zoom_in">powiększ</string>
+    <string name="cd_zoom_out">pomniejsz</string>
+    <string name="cd_transmit">nadaj</string>
+    <string name="cd_delete">usuń</string>
+    <string name="cd_export">eksportuj</string>
+    <string name="cd_expand">rozwiń</string>
+    <string name="cd_collapse">zwiń</string>
+
+    <!-- Connection indicator -->
+    <string name="conn_disconnected">Rozłączono</string>
+    <string name="conn_connecting">Łączenie…</string>
+    <string name="conn_connected_unverified">Połączono (niezweryfikowane)</string>
+    <string name="conn_verified">Zweryfikowano</string>
+    <string name="conn_wrong_device">Niewłaściwe urządzenie</string>
+    <string name="conn_error">Błąd</string>
+
+    <!-- Monitor lock banner -->
+    <string name="monitor_lock_banner">Monitor działa — komendy do urządzenia są zablokowane. Zatrzymaj monitor, aby edytować radio lub nadawać.</string>
+
+    <!-- Main (Monitor) tab -->
+    <string name="sec_connection">Połączenie</string>
+    <string name="radios_label">radia</string>
+    <string name="profile_label">Profil:</string>
+    <string name="profile_none_hint">(brak profilu — pobierz w Ustawieniach)</string>
+    <string name="log_title">Log</string>
+    <string name="log_save">Zapisz</string>
+    <string name="vm_log_saved">Zapisano log: %1$s</string>
+    <string name="vm_log_save_failed">Zapis logu nieudany (brak zapisu do wybranego folderu)</string>
+    <string name="vm_log_empty">Log jest pusty — nie ma czego zapisać</string>
+
+    <!-- Monitor-running exit dialog -->
+    <string name="monitor_running_title">Monitor działa</string>
+    <string name="monitor_close_question">Monitor nadal działa. Zatrzymać go przed wyjściem z aplikacji?</string>
+    <string name="stop_and_exit">Zatrzymaj i wyjdź</string>
+    <string name="exit_without_stopping">Wyjdź bez zatrzymywania</string>
+    <string name="cancel">Anuluj</string>
+
+    <!-- cc1101 tab -->
+    <string name="cc_connect_hint">Połącz się z urządzeniem (zakładka Monitor), aby edytować radio.</string>
+    <string name="cc_modulation">Modulacja</string>
+    <string name="cc_current">aktualna</string>
+    <string name="cc_quick_params">Parametry (szybka edycja)</string>
+    <string name="cc_full_state">Pełny stan radia</string>
+    <string name="lbl_value">wartość</string>
+    <string name="cc_profiles">Profile radiowe</string>
+    <string name="lbl_profile_name">Nazwa profilu</string>
+    <string name="lbl_profile_lines">Linie profilu (po jednej komendzie radio w wierszu)</string>
+
+    <!-- TX tab -->
+    <string name="tx_profile_label">Profil</string>
+    <string name="tx_no_profiles">— brak profili (pobierz w Konfiguracji)</string>
+    <string name="tx_interface">interfejs</string>
+    <string name="tx_transmit_protocol">Nadaj protokół</string>
+    <string name="tx_transmit_btn">Nadaj</string>
+    <string name="tx_edit_in_protocol">Edytuj w Protocol</string>
+    <string name="tx_pick_protocol_hint">Wybierz protokół, aby pojawiły się pola do wypełnienia.</string>
+    <string name="tx_signal_source">Źródło sygnału</string>
+    <string name="tx_up">W górę</string>
+    <string name="tx_choose_folder">Wybierz folder…</string>
+    <string name="tx_open_sub">Otwórz .sub…</string>
+    <string name="tx_saf_hint">Na Androidzie 11+ pliki .sub w katalogach współdzielonych (np. Pobrane) są widoczne dopiero po „Wybierz folder…”.</string>
+    <string name="tx_empty_or_no_access">Pusto lub brak dostępu.</string>
+    <string name="tx_or_from_saved">…lub z zapisanych pakietów (data/):</string>
+    <string name="tx_load">Załaduj</string>
+    <string name="tx_preview">Podgląd</string>
+    <string name="tx_load_signal_hint">Załaduj sygnał, aby zobaczyć podgląd i nadać.</string>
+    <string name="tx_pulses_word">impulsów</string>
+    <string name="tx_fsk_packet">Pakiet (FSK)</string>
+    <string name="tx_set_freq_1">Ustaw częstotliwość</string>
+    <string name="tx_set_freq_2">przed wysłaniem</string>
+    <string name="tx_send_btn">Wyślij</string>
+    <string name="tx_connect_to_send">Połącz i zweryfikuj urządzenie, aby nadawać.</string>
+    <string name="tx_monitor_active_hint">Monitor aktywny — zatrzymaj go, aby nadawać.</string>
+    <string name="tx_pick_protocol_dropdown">Wybierz protokół…</string>
+    <string name="tx_frequency">Częstotliwość</string>
+    <string name="tx_repeat_label">Powtórzenia (1–100)</string>
+    <string name="tx_gap_label">Odstęp między pakietami</string>
+    <string name="tx_gap_sub">domyślnie z Konfiguracji</string>
+    <string name="tx_zoom_drag_hint">przesuwaj palcem w poziomie</string>
+
+    <!-- Protocol (Interpret) tab -->
+    <string name="ip_empty_hint">Otwórz tę zakładkę klikając linię monitora (Monitor) albo wybierając protokół do nadania w zakładce TX.</string>
+    <string name="ip_compose_title">Nadawanie protokołu</string>
+    <string name="ip_tx_prefix">Nadanie:</string>
+    <string name="ip_tx_every">co</string>
+    <string name="ip_tx_hint_suffix">(ustaw powtórzenia/odstęp w zakładce TX / Konfiguracji)</string>
+    <string name="ip_transmit_on">Nadaj na</string>
+    <string name="ip_connect_to_tx">Połącz urządzenie, aby nadawać.</string>
+    <string name="ip_captured_packet">Przechwycony pakiet</string>
+    <string name="ip_matched_protocols">Dopasowane protokoły</string>
+    <string name="ip_no_matches">Brak dopasowań.</string>
+    <string name="ip_best_match">najlepszy</string>
+    <string name="ip_fields_title">Pola (kody / liczniki)</string>
+    <string name="ip_transmit">Nadaj</string>
+    <string name="ip_transmit_raw">Nadaj surowy przebieg</string>
+    <string name="ip_on_iface">na</string>
+    <string name="vm_raw_ook_only">Surowe odtwarzanie dostępne tylko dla przechwytów OOK</string>
+    <string name="ip_tx_mode_hint">OOK wysyłany jako pulses play; FSK jako „send” w bieżącej modulacji — najpierw zastosuj pasujący profil w zakładce cc1101.</string>
+    <string name="ip_save_filename">Nazwa pliku w data/</string>
+    <string name="ip_save_to_data">Zapisz do data/</string>
+    <string name="ip_saved_packets">Zapisane pakiety (data/)</string>
+    <string name="ip_no_saved">Brak zapisanych pakietów.</string>
+    <string name="ip_export_hint">Eksport (↥) kopiuje .json + .txt do wybranego folderu (np. Pobrane), poza aplikację.</string>
+    <string name="vm_export_ok">Wyeksportowano: %1$s (.json + .txt)</string>
+    <string name="vm_export_failed">Eksport nieudany (brak zapisu do wybranego folderu)</string>
+
+    <!-- Settings (Config) tab -->
+    <string name="cfg_settings">Ustawienia</string>
+    <string name="cfg_gps_title">Znakuj pakiety pozycją GPS</string>
+    <string name="cfg_gps_desc">Gdy włączone, zapis odebranego pakietu dołącza współrzędne GPS do pliku.</string>
+    <string name="cfg_gps_no_perm">Brak uprawnienia do lokalizacji — przyznaj je, aby zapisywać GPS.</string>
+    <string name="cfg_autoreconnect_title">Automatyczne wznawianie połączenia</string>
+    <string name="cfg_autoreconnect_desc">Po nieoczekiwanym rozłączeniu aplikacja sama spróbuje połączyć się z RP2040 ponownie.</string>
+    <string name="cfg_theme_title">Szablon kolorystyczny</string>
+    <string name="cfg_theme_desc">Zmienia paletę całej aplikacji.</string>
+    <string name="cfg_gap_title">Odstęp między powtórzeniami (TX)</string>
+    <string name="cfg_gap_desc">Pauza wstawiana między kolejnymi nadaniami pakietu.</string>
+    <string name="cfg_capture_title">Przechwytywanie OOK (monitor)</string>
+    <string name="cfg_capture_desc">Wykrywanie ramki dla przechwytów OOK: najkrótszy zachowywany impuls (ucina runty) oraz przerwa LOW kończąca ramkę. Ustaw przerwę tuż powyżej najdłuższego LOW w ramce, a poniżej przerwy między powtórzeniami — wtedy jedno przechwycenie = jedna pełna ramka. Wymaga firmware build 2+ (starsze ignorują te parametry).</string>
+    <string name="cfg_capture_min">Min. impuls</string>
+    <string name="cfg_capture_gap">Przerwa ramki</string>
+    <string name="cfg_usb_title">Urządzenie USB (115200 8N1)</string>
+    <string name="cfg_detected_adapters">Wykryte adaptery</string>
+    <string name="cfg_scan">Skanuj</string>
+    <string name="cfg_no_devices">Brak urządzeń. Podłącz RP2040 przez USB-OTG.</string>
+    <string name="cfg_connect">Połącz</string>
+    <string name="cfg_check">Sprawdź</string>
+    <string name="cfg_disconnect">Rozłącz</string>
+    <string name="cfg_radio_select">Wybór radia (interfejs)</string>
+    <string name="cfg_use_check_hint">Użyj „Sprawdź”, aby pobrać listę interfejsów (radio list).</string>
+    <string name="cfg_iface_absent">(brak)</string>
+    <string name="cfg_active">aktywny</string>
+    <string name="cfg_profiles_title">Profile radiowe (edycja w zakładce cc1101)</string>
+    <string name="cfg_saved_profiles">Zapisane profile</string>
+    <string name="cfg_no_profiles">Brak profili lub nie pobrano listy.</string>
+    <string name="cfg_edit">Edytuj</string>
+    <string name="cfg_apply">Zastosuj</string>
+    <string name="cfg_analyzers_title">Analizatory protokołów (wtyczki)</string>
+    <string name="cfg_analyzers_hint">Nowe implementacje dodaje się przez AnalyzerRegistry.register(…) (interfejs ProtocolAnalyzer).</string>
+
+    <!-- ViewModel / CLI runtime messages (log + errors) -->
+    <string name="vm_cannot_read_file">Nie można odczytać pliku: %1$s</string>
+    <string name="vm_unsupported_file">Nieobsługiwany plik: %1$s</string>
+    <string name="vm_no_pulses_in">Brak danych impulsów w: %1$s</string>
+    <string name="vm_no_pulses_in_sample">Brak danych impulsów w sampli</string>
+    <string name="vm_cannot_build_frame_from">Nie można zbudować ramki z: %1$s</string>
+    <string name="vm_cannot_build_frame_for">nie można zbudować ramki dla %1$s</string>
+    <string name="vm_interpret_ook_only">Interpretacja dostępna tylko dla sygnałów OOK</string>
+    <string name="vm_no_signal_loaded">Brak załadowanego sygnału</string>
+    <string name="vm_autoreconnect_attempt">auto-reconnect: próba wznowienia połączenia…</string>
+    <string name="vm_gps_no_fix">GPS włączony, ale brak pozycji (brak uprawnień lub fixa) — zapis bez współrzędnych</string>
+    <string name="vm_dir_unreadable">Katalog nieczytelny (uprawnienia). Użyj „Wybierz folder…”.</string>
+    <string name="vm_cannot_open_folder">Nie można otworzyć folderu</string>
+    <string name="cli_monitor_locked">monitor aktywny — zatrzymaj monitor, aby wysyłać komendy</string>
+    <string name="fw_packet_too_long">pakiet za długi dla bufora komend urządzenia (%1$d&gt;%2$d znaków)</string>
+</resources>

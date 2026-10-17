@@ -61,10 +61,15 @@ device/per-app locale automatically.
 Tabs: **Monitor**, **Protocol**, **TX**, **cc1101**. Settings live behind the
 gear icon in the top bar (a separate screen, not a tab).
 
-1. **Monitor** — connection indicator (with the device identity from `info`),
-   *Connect / Disconnect / Verify device* buttons, monitor start/stop, and the
-   **log** of all CLI + monitor traffic. Monitor lines use a distinct colour;
-   tapping a line that carried a decodable packet opens it in the Protocol tab.
+1. **Monitor** — a **collapsible** connection panel (device identity from `info`,
+   *Connect / Disconnect / Verify device*); collapse it with the chevron to give
+   the log more room — a compact connection LED stays in the header. Below it are
+   monitor start/stop and the **log** of all CLI + monitor traffic. Monitor lines
+   use a distinct colour; the log is grouped into **signal blocks** — each capture
+   starts a new block (with a divider above it) and its following lines share the
+   block's faint background shade, with adjacent blocks alternating, so captures
+   are easy to tell apart and tap. Tapping a line that carried a decodable packet
+   opens it in the Protocol tab.
 2. **Protocol** — entered from Monitor (tapping a log line) or from TX (after a
    protocol to transmit is selected — not from a file). Two modes: interpret a
    captured packet, and *compose* — edit a chosen protocol's fields and
@@ -165,6 +170,14 @@ AnalyzerRegistry.register(MyAnalyzer())
 `AnalysisResult.encode(fields)` builds a `TxFrame` (OOK pulses or FSK hex) from
 the (possibly edited) fields — that is what gets transmitted.
 
+**Confidence scoring is dynamic.** A match's score is a structural prior (how
+distinctive the framing is) blended with the measured fit of the actual capture
+— timing jitter against the Te grid, whether the frame closed on the expected
+separator, and whether the exact bit count was recovered (`Scoring` in
+`Protocol.kt`). So when more than one analyzer could claim a signal, the one the
+pulses genuinely fit best wins, rather than a hand-tuned constant; generic
+fallbacks keep a low flat score.
+
 Built-in analyzers:
 
 - **EV1527 / PT2262** (OOK, 24-bit PWM) — 20-bit address + 4-bit data.
@@ -179,8 +192,12 @@ Built-in analyzers:
     button / flags); edit + replay round-trips exactly. Timing defaults may need
     tuning against a real capture.
   The encrypted/hopping portion is shown as captured — no KeeLoq decryption.
-- **Somfy RTS** (OOK, Manchester, 640 µs) — hardware sync + soft-sync + frame
-  bits; editable (hex/bits) and replayable.
+- **Somfy RTS** (OOK, Manchester, 640 µs) — hardware sync + soft-sync + 81
+  payload bits, presented byte-aligned as **code0** (32-bit), **code1** (32-bit)
+  and **code3** (24-bit). A **next_code** ticker (0–12) selects a rolling key:
+  for a non-zero value `code0` is XORed by `next_key_xor_table[next_code]` before
+  the frame is reassembled, then transmitted or saved. The payload is shown as
+  captured (encrypted rolling code — not decrypted).
 - **DB200** (OOK, 4-bit PWM).
 - **Manchester (base)** — IEEE 802.3 Manchester decoder/encoder for OOK.
 - **Generic OOK / FSK** fallbacks and a heuristic FSK rolling-code splitter.
@@ -191,6 +208,11 @@ Saved packets are JSON files in the app's private `data` directory
 (`filesDir/data`). Each file holds `analyzerId`, protocol name and the field
 list — enough to rebuild and re-transmit the frame without the original capture
 (`SavedEncoder`). A `.txt` sidecar is written alongside (with GPS if present).
+
+**Export.** In the Protocol tab, each saved packet has an **export** (↥) action:
+it opens the system folder picker (SAF) and copies that packet's `.json` and
+`.txt` into the chosen folder (e.g. Downloads), outside the app's private
+storage — no root or `adb` needed.
 
 ## Build/test note
 

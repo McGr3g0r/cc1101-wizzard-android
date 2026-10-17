@@ -29,11 +29,15 @@ import kotlinx.coroutines.launch
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val serial = SerialManager(app)
-    private val engine = CliEngine(serial, viewModelScope)
-    private val fw = FirmwareCli(engine)
+    private val engine = CliEngine(serial, viewModelScope, app)
+    private val fw = FirmwareCli(engine, app)
     private val store = PacketStore(app)
     private val prefs = com.wizzard.cc1101.util.Prefs(app)
     private val location = com.wizzard.cc1101.util.LocationHelper(app)
+
+    /** Localized string lookup from the application context. */
+    private fun str(resId: Int, vararg args: Any): String =
+        getApplication<Application>().getString(resId, *args)
 
     // ---- main-tab state ---------------------------------------------------
     val logs: SnapshotStateList<LogLine> = mutableStateListOf()
@@ -102,20 +106,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.onSuccess { text ->
             val name = uri.lastPathSegment?.substringAfterLast('/') ?: "flipper.sub"
             parseTxFlipper(name, text)
-        }.onFailure { txError = "Nie można odczytać pliku: ${it.message}" }
+        }.onFailure { txError = str(R.string.vm_cannot_read_file, it.message ?: "") }
     }
 
     fun loadTxFromFile(file: java.io.File) {
         runCatching { file.readText() }
             .onSuccess { parseTxFlipper(file.name, it) }
-            .onFailure { txError = "Nie można odczytać pliku: ${it.message}" }
+            .onFailure { txError = str(R.string.vm_cannot_read_file, it.message ?: "") }
     }
 
     private fun parseTxFlipper(name: String, text: String) {
         val s = com.wizzard.cc1101.data.FlipperSample.parse(name, text)
-        if (s == null) { txError = "Nieobsługiwany plik: $name"; return }
+        if (s == null) { txError = str(R.string.vm_unsupported_file, name); return }
         val pulses = s.toPulses()
-        if (pulses == null) { txError = "Brak danych impulsów w: $name"; return }
+        if (pulses == null) { txError = str(R.string.vm_no_pulses_in, name); return }
         txError = null
         if (s.frequencyHz > 0) txFreqHz = s.frequencyHz
         txSignal = TxSignal(name, TxFrame.OokPulses(pulses), pulses, null, s.frequencyHz.takeIf { it > 0 })
@@ -123,7 +127,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadTxFromSaved(saved: PacketStore.Saved) {
         val frame = SavedEncoder.encode(saved.analyzerId, saved.fields)
-        if (frame == null) { txError = "Nie można zbudować ramki z: ${saved.name}"; return }
+        if (frame == null) { txError = str(R.string.vm_cannot_build_frame_from, saved.name); return }
         txError = null
         val pulses = (frame as? TxFrame.OokPulses)?.us
         val hex = (frame as? TxFrame.FskHex)?.hex
@@ -166,7 +170,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun transmitCompose() = scope {
         val id = composeId ?: return@scope
         val frame = com.wizzard.cc1101.protocol.ProtocolTemplates.encode(id, composeFields()) ?: run {
-            engine.onLog?.invoke(LogLine(System.nanoTime(), LogKind.ERROR, "nie można zbudować ramki dla $id"))
+            engine.log(LogKind.ERROR, str(R.string.vm_cannot_build_frame_for, id))
             return@scope
         }
         // apply the TX frequency (+ OOK for pulse frames) before sending
@@ -178,13 +182,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Send the loaded TX signal through the protocol analyzers (Protocol tab). */
     fun interpretTxSignal() {
         val sig = txSignal ?: return
-        val us = sig.pulses ?: run { txError = "Interpretacja dostępna tylko dla sygnałów OOK"; return }
+        val us = sig.pulses ?: run { txError = str(R.string.vm_interpret_ook_only); return }
         interpret(CapturedPacket.Ook("tx", System.currentTimeMillis(), 0, 0, us, "tx:${sig.label}"))
     }
 
     /** Apply the chosen frequency (and OOK for pulse signals), then send N times. */
     fun sendTx(applyRadio: Boolean) = scope {
-        val sig = txSignal ?: run { txError = "Brak załadowanego sygnału"; return@scope }
+        val sig = txSignal ?: run { txError = str(R.string.vm_no_signal_loaded); return@scope }
         if (applyRadio) {
             if (sig.pulses != null) fw.setMod(selectedIface, "ook")
             fw.setParam(selectedIface, "freq", txFreqHz.toString())
@@ -205,6 +209,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTheme(id: String) { themeId = id; prefs.themeId = id }
     fun updateAutoReconnect(enabled: Boolean) { autoReconnect = enabled; prefs.autoReconnect = enabled }
 
+    // ---- OOK monitor capture window (firmware build 2+) -------------------
+    var captureMinUs by mutableStateOf(prefs.captureMinUs); private set
+    var captureGapUs by mutableStateOf(prefs.captureGapUs); private set
+    fun updateCaptureMinUs(us: Int) { captureMinUs = us.coerceIn(0, 2000); prefs.captureMinUs = captureMinUs }
+    fun updateCaptureGapUs(us: Int) { captureGapUs = us.coerceIn(0, 60000); prefs.captureGapUs = captureGapUs }
+
     fun hasLocationPermission() = location.hasPermission()
 
     /** Whether the Konfiguracja screen (gear icon) is shown. */
@@ -212,6 +222,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Tab the UI should show. */
     var selectedTab by mutableStateOf(0)
+
+    /**
+     * Whether the Monitor-tab connection panel is expanded. Kept here (not in
+     * the composable) so it survives switching tabs away and back.
+     */
+    var connExpanded by mutableStateOf(true)
 
     private val MAX_LOG = 2000
 
@@ -259,7 +275,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Retry opening the first available serial device a few times (auto-reconnect). */
     private fun tryReconnect() {
         viewModelScope.launch {
-            engine.onLog?.invoke(LogLine(System.nanoTime(), LogKind.INFO, "auto-reconnect: próba wznowienia połączenia…"))
+            engine.log(LogKind.INFO, str(R.string.vm_autoreconnect_attempt))
             repeat(6) {
                 kotlinx.coroutines.delay(1500)
                 if (serial.isOpen || manualDisconnect) return@launch
@@ -276,7 +292,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun connectFirstAndVerify() {
         refreshDrivers()
         if (drivers.isEmpty()) {
-            engine.onLog?.invoke(LogLine(System.nanoTime(), LogKind.ERROR, "no USB serial devices found"))
+            engine.log(LogKind.ERROR, "no USB serial devices found")
             return
         }
         conn = ConnState.CONNECTING
@@ -379,7 +395,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- monitor ----------------------------------------------------------
 
     fun startMonitor(profile: String) = scope {
-        val res = fw.monitorStart(selectedIface, profile, json = true)
+        val res = fw.monitorStart(selectedIface, profile, json = true,
+            minUs = captureMinUs, maxGapUs = captureGapUs)
         monitorRunning = res.ok
         engine.blockWhileMonitor = monitorRunning   // lock out other commands while capturing
     }
@@ -416,10 +433,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun transmitEdited() = scope {
         val r = selectedResult ?: return@scope
         val frame = r.encode(currentFields()) ?: run {
-            engine.onLog?.invoke(LogLine(System.nanoTime(), LogKind.ERROR, "cannot build frame from fields"))
+            engine.log(LogKind.ERROR, "cannot build frame from fields")
             return@scope
         }
+        applyRadioForTx(frame)
         transmit(frame)
+    }
+
+    /**
+     * Replay the EXACT captured pulse-train (OOK), bypassing field reconstruction.
+     * The most faithful replay for fixed-code protocols (EV1527/PT2262); honours
+     * the TX repeat/gap. Note: for rolling codes (HCS/KeeLoq) a real receiver
+     * tracks the counter and rejects a replayed old frame by design.
+     */
+    fun transmitRawCapture() = scope {
+        val p = selectedPacket
+        if (p !is CapturedPacket.Ook) { txError = str(R.string.vm_raw_ook_only); return@scope }
+        val frame = TxFrame.OokPulses(p.us)
+        applyRadioForTx(frame)
+        transmit(frame)
+    }
+
+    /**
+     * Put the radio into the right state for a replay: OOK modulation for pulse
+     * frames, and the TX frequency, before sending. Without this a captured OOK
+     * code could be transmitted in whatever modulation the radio was last left in
+     * (so other receivers wouldn't recognise it). Mirrors [transmitCompose]/[sendTx].
+     */
+    private suspend fun applyRadioForTx(frame: TxFrame) {
+        if (frame is TxFrame.OokPulses) fw.setMod(selectedIface, "ook")
+        fw.setParam(selectedIface, "freq", txFreqHz.toString())
     }
 
     /**
@@ -447,8 +490,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             PacketStore.Gps(it.lat, it.lon, it.timeMs, it.provider, it.accuracyM)
         } else null
         if (gpsEnabled && gps == null) {
-            engine.onLog?.invoke(LogLine(System.nanoTime(), LogKind.INFO,
-                "GPS włączony, ale brak pozycji (brak uprawnień lub fixa) — zapis bez współrzędnych"))
+            engine.log(LogKind.INFO, str(R.string.vm_gps_no_fix))
         }
         store.save(name, r, currentFields(), gps)
         refreshSaved()
@@ -462,15 +504,64 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.delete(saved.file); refreshSaved()
     }
 
+    // ---- export saved packets outside the app's private storage ----------
+    /** The packet queued for export; set just before launching the folder picker. */
+    var pendingExport: PacketStore.Saved? = null
+
+    /**
+     * Copy the queued saved packet (its .json and the .txt sidecar) into the
+     * SAF tree the user picked, so it leaves the app's private `data/` directory.
+     */
+    fun exportTo(treeUri: android.net.Uri) = scope {
+        val s = pendingExport ?: return@scope
+        pendingExport = null
+        val app = getApplication<Application>()
+        val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(app, treeUri)
+        if (tree == null || !tree.canWrite()) { engine.log(LogKind.ERROR, str(R.string.vm_export_failed)); return@scope }
+        runCatching {
+            val base = s.file.nameWithoutExtension
+            tree.createFile("application/json", "$base.json")?.let { doc ->
+                app.contentResolver.openOutputStream(doc.uri)?.use { it.write(s.file.readBytes()) }
+            } ?: throw java.io.IOException("createFile json")
+            val txt = java.io.File(s.file.parentFile, "$base.txt")
+            if (txt.exists()) tree.createFile("text/plain", "$base.txt")?.let { doc ->
+                app.contentResolver.openOutputStream(doc.uri)?.use { it.write(txt.readBytes()) }
+            }
+            engine.log(LogKind.INFO, str(R.string.vm_export_ok, base))
+        }.onFailure { engine.log(LogKind.ERROR, str(R.string.vm_export_failed)) }
+    }
+
     fun transmitSaved(saved: PacketStore.Saved) = scope {
         val frame = SavedEncoder.encode(saved.analyzerId, saved.fields) ?: run {
-            engine.onLog?.invoke(LogLine(System.nanoTime(), LogKind.ERROR, "cannot rebuild frame for ${saved.name}"))
+            engine.log(LogKind.ERROR, "cannot rebuild frame for ${saved.name}")
             return@scope
         }
+        applyRadioForTx(frame)
         transmit(frame)
     }
 
     fun clearLogs() = logs.clear()
+
+    /**
+     * Save the current log (each line prefixed with its `[HH:mm:ss.SSS]`
+     * timestamp) as a .txt file in the SAF folder the user picked — same
+     * mechanism as exporting saved packets, so it leaves the app's storage.
+     */
+    fun saveLogsTo(treeUri: android.net.Uri) = scope {
+        if (logs.isEmpty()) { engine.log(LogKind.INFO, str(R.string.vm_log_empty)); return@scope }
+        val app = getApplication<Application>()
+        val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(app, treeUri)
+        if (tree == null || !tree.canWrite()) { engine.log(LogKind.ERROR, str(R.string.vm_log_save_failed)); return@scope }
+        runCatching {
+            val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+            val name = "cc1101-log-$stamp.txt"
+            val text = logs.joinToString("\n") { "[${logTimestamp(it.timestampMs)}] ${it.text}" } + "\n"
+            tree.createFile("text/plain", name)?.let { doc ->
+                app.contentResolver.openOutputStream(doc.uri)?.use { it.write(text.toByteArray()) }
+            } ?: throw java.io.IOException("createFile")
+            engine.log(LogKind.INFO, str(R.string.vm_log_saved, name))
+        }.onFailure { engine.log(LogKind.ERROR, str(R.string.vm_log_save_failed)) }
+    }
 
     // ---- file browser (TX) : File mode + SAF document-tree mode ----------
     val browseItems: SnapshotStateList<BrowseItem> = mutableStateListOf()
@@ -496,7 +587,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         browseItems.clear()
         val children = dir.listFiles()
         if (children == null) {
-            browseError = "Katalog nieczytelny (uprawnienia). Użyj „Wybierz folder…”."
+            browseError = str(R.string.vm_dir_unreadable)
             return
         }
         children.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenBy { it.name.lowercase() })
@@ -514,7 +605,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
         val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(app, uri)
-        if (root == null) { browseError = "Nie można otworzyć folderu"; return }
+        if (root == null) { browseError = str(R.string.vm_cannot_open_folder); return }
         browseSaf = true
         safStack.clear()
         safStack.addLast(root)
@@ -601,7 +692,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadFlipperFile(file: java.io.File) {
         runCatching { file.readText() }
             .onSuccess { parseSample(file.name, it) }
-            .onFailure { sampleError = "Nie można odczytać pliku: ${it.message}" }
+            .onFailure { sampleError = str(R.string.vm_cannot_read_file, it.message ?: "") }
     }
 
     fun loadFlipperUri(uri: android.net.Uri) {
@@ -611,7 +702,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.onSuccess { text ->
             val name = uri.lastPathSegment?.substringAfterLast('/') ?: "flipper.sub"
             parseSample(name, text)
-        }.onFailure { sampleError = "Nie można odczytać pliku: ${it.message}" }
+        }.onFailure { sampleError = str(R.string.vm_cannot_read_file, it.message ?: "") }
     }
 
     private fun parseSample(name: String, text: String) {
@@ -628,14 +719,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Feed the current sample's pulse-train into the interpretation tab. */
     fun interpretSample() {
         val s = currentSample ?: return
-        val us = s.toPulses() ?: run { sampleError = "Brak danych impulsów w sampli"; return }
+        val us = s.toPulses() ?: run { sampleError = str(R.string.vm_no_pulses_in_sample); return }
         interpret(CapturedPacket.Ook("sample", System.currentTimeMillis(), 0, 0, us, "flipper:${s.name}"))
     }
 
     /** Set frequency + OOK on the radio (from the sample) and replay its pulses. */
     fun transmitSample(applyRadio: Boolean) = scope {
         val s = currentSample ?: return@scope
-        val us = s.toPulses() ?: run { sampleError = "Brak danych impulsów w sampli"; return@scope }
+        val us = s.toPulses() ?: run { sampleError = str(R.string.vm_no_pulses_in_sample); return@scope }
         if (applyRadio && s.frequencyHz > 0) {
             fw.setMod(selectedIface, "ook")
             fw.setParam(selectedIface, "freq", s.frequencyHz.toString())

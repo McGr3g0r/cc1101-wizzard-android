@@ -16,21 +16,24 @@ class Ev1527Analyzer : ProtocolAnalyzer {
         if (packet !is CapturedPacket.Ook) return null
         val t = OokDecoding.estimateTiming(packet.us)
         if (t.shortUs == 0) return null
-        val bits = OokDecoding.decodePwm(packet.us, t)
-        if (bits.length < 20) return null
-
-        val use = bits.take(24)
-        val clean = use.length == 24
+        // EV1527 / PT2262 is a FIXED 24-bit frame. Take the longest clean PWM run
+        // and require it to be ~24 bits. The firmware's "gap→frame→gap" grabber
+        // trims the trailing sync gap, so we no longer require the frame to be
+        // gap-terminated (that would reject a correctly-captured single frame).
+        // Instead we reject when a clearly longer clean run exists (e.g. a 66-bit
+        // KeeLoq/HCS frame) — the extra bits prove it isn't EV1527.
+        val frames = OokDecoding.decodePwmFrames(packet.us, t)
+        if (frames.any { it.bits.length >= 28 }) return null
+        val frame = frames.filter { it.bits.length in 23..25 }.maxByOrNull { it.bits.length } ?: return null
+        val use = frame.bits.take(24).padEnd(24, '0')
         val addrBits = use.take(20)
-        val dataBits = if (use.length >= 24) use.substring(20, 24) else use.drop(20).padEnd(4, '0')
+        val dataBits = use.substring(20, 24)
         val addr = OokDecoding.bitsToLong(addrBits)
 
-        // confidence: 24 clean bits and a ~3x short/long ratio
-        val score = when {
-            clean -> 0.90f
-            use.length in 22..24 -> 0.72f
-            else -> 0.5f
-        }
+        // dynamic confidence from how cleanly the pulses fit the EV1527 grid;
+        // a present separator (repeats captured) nudges it up, exact 24 bits too.
+        val score = Scoring.score(0.55f,
+            Scoring.quality(frame.meanTickErr, separator = frame.gapTerminated, exactBits = frame.bits.length == 24))
 
         val fields = listOf(
             ProtoField("addr", "Address (20-bit code)", "0x%05X".format(addr), FieldType.HEX),
@@ -194,24 +197,29 @@ class Pt2240Analyzer : ProtocolAnalyzer {
         if (!found) return null
 
         val bits = StringBuilder()
+        var errSum = 0.0; var errN = 0; var clean = true
         while (i + 1 < us.size && bits.length < 24) {
             val p0 = t(i); val p1 = t(i + 1)
             when {
                 p0 == 3 && p1 == 1 -> bits.append('1')
                 p0 == 1 && p1 == 3 -> bits.append('0')
-                p0 == 3 -> bits.append('1')   // tolerate truncated last bit
-                p0 == 1 -> bits.append('0')
+                p0 == 3 -> { bits.append('1'); clean = false }   // tolerate truncated last bit
+                p0 == 1 -> { bits.append('0'); clean = false }
                 else -> return null
             }
+            errSum += OokDecoding.tickError(us[i], base) + OokDecoding.tickError(us[i + 1], base); errN += 2
             i += 2
         }
         if (bits.length < 24) return null
         val code = OokDecoding.bitsToLong(bits.toString())
 
+        // the leading short+gap preamble was required by the gate above (separator)
+        val score = Scoring.score(0.58f, Scoring.quality(if (errN > 0) errSum / errN else 0.5, separator = true, exactBits = clean))
+
         return AnalysisResult(
             analyzerId = id,
             protocol = "PT2240 (24-bit)",
-            score = 0.85f,
+            score = score,
             summary = "code=0x%06X (Te≈%dus)".format(code, base),
             fields = listOf(
                 ProtoField("code", "Code (24-bit)", "0x%06X".format(code), FieldType.HEX),
@@ -261,11 +269,11 @@ class ManchesterAnalyzer : ProtocolAnalyzer {
             analyzerId = id,
             protocol = "Manchester (OOK)",
             score = if (cleanFrac > 0.8f) 0.40f else 0.25f,
-            summary = "${bits.length} bitów, Te≈${base}us, hex=$hex",
+            summary = "${bits.length} bits, Te≈${base}us, hex=$hex",
             fields = listOf(
-                ProtoField("bits", "Bity (Manchester)", bits, FieldType.BITS),
-                ProtoField("hex", "Bajty (hex)", hex, FieldType.HEX, editable = false),
-                ProtoField("te", "Pół-takt Te [us]", base.toString(), FieldType.DEC),
+                ProtoField("bits", "Bits (Manchester)", bits, FieldType.BITS),
+                ProtoField("hex", "Bytes (hex)", hex, FieldType.HEX, editable = false),
+                ProtoField("te", "Half-bit Te [us]", base.toString(), FieldType.DEC),
             ),
             canTransmit = true,
         ) { edited ->
@@ -285,7 +293,8 @@ class ManchesterAnalyzer : ProtocolAnalyzer {
 /** Shared decode for the HCS 66-bit cleartext layout (enc / serial / btn / flags). */
 private fun hcsDecode(packet: CapturedPacket, id: String, name: String): AnalysisResult? {
     if (packet !is CapturedPacket.Ook) return null
-    val bits = KeeLoqCodec.decode(packet.us, KeeLoqCodec.HCS) ?: return null
+    val dr = KeeLoqCodec.decodeResult(packet.us, KeeLoqCodec.HCS) ?: return null
+    val bits = dr.bits
     val base = OokDecoding.dominantBaseBand(packet.us, 250, 600, 400)
 
     val enc = KeeLoqCodec.field(bits, 0, 32)
@@ -296,8 +305,10 @@ private fun hcsDecode(packet: CapturedPacket, id: String, name: String): Analysi
 
     return AnalysisResult(
         analyzerId = id,
+        // High specificity prior (23-pulse preamble + header + 66 exact PWM bits),
+        // blended with the measured fit of this capture.
+        score = Scoring.score(0.70f, Scoring.quality(dr.meanTickErr, dr.separator, dr.exact)),
         protocol = name,
-        score = 0.82f,
         summary = "enc=0x%08X serial=0x%07X btn=%X vlow=%d rpt=%d (Te≈%dus)".format(enc, serial, btn, vlow, rpt, base),
         fields = listOf(
             ProtoField("enc", "Hopping code (32-bit, encrypted)", "0x%08X".format(enc), FieldType.HEX),
@@ -358,7 +369,8 @@ class NiceFlorSAnalyzer : ProtocolAnalyzer {
 
     override fun analyze(packet: CapturedPacket): AnalysisResult? {
         if (packet !is CapturedPacket.Ook) return null
-        val bits = KeeLoqCodec.decode(packet.us, KeeLoqCodec.NICE_FLORS) ?: return null
+        val dr = KeeLoqCodec.decodeResult(packet.us, KeeLoqCodec.NICE_FLORS) ?: return null
+        val bits = dr.bits
         val base = OokDecoding.dominantBaseBand(packet.us, 350, 800, 500)
 
         val serial = KeeLoqCodec.field(bits, 0, 28)
@@ -369,8 +381,9 @@ class NiceFlorSAnalyzer : ProtocolAnalyzer {
         return AnalysisResult(
             analyzerId = id,
             protocol = "Nice Flor-S (52-bit)",
-            score = 0.60f,
-            summary = "serial=0x%07X cnt=%d btn=%X (Te≈%dus) — ramka zaszyfrowana".format(serial, counter, btn, base),
+            // Lower prior: no header, 52-bit slice is a best-effort framing.
+            score = Scoring.score(0.50f, Scoring.quality(dr.meanTickErr, dr.separator, dr.exact)),
+            summary = "serial=0x%07X cnt=%d btn=%X (Te≈%dus) — encrypted frame".format(serial, counter, btn, base),
             fields = listOf(
                 ProtoField("serial", "Serial (28-bit)", "0x%07X".format(serial), FieldType.HEX),
                 ProtoField("counter", "Counter (16-bit)", counter.toString(), FieldType.DEC),
@@ -432,37 +445,84 @@ class SomfyAnalyzer : ProtocolAnalyzer {
         if (us[i] in (SOFT_SYNC - HALF / 2)..(SOFT_SYNC + HALF / 2 + HALF / 10)) i++ else return null
 
         val bits = StringBuilder()
+        var errSum = 0.0; var errN = 0
         while (i < us.size - 1 && bits.length < CODED_BITS) {
             val p0 = t(i); val p1 = t(i + 1)
             when {
-                p0 == 1 && p1 == 1 -> { bits.append('1'); i += 2 }
-                p0 == 2 -> { bits.append('0'); i += 1 }
-                p0 == 1 && p1 == 3 -> { bits.append('1'); i += 2 }
+                p0 == 1 && p1 == 1 -> { bits.append('1'); errSum += OokDecoding.tickError(us[i], base) + OokDecoding.tickError(us[i + 1], base); errN += 2; i += 2 }
+                p0 == 2 -> { bits.append('0'); errSum += OokDecoding.tickError(us[i], base); errN += 1; i += 1 }
+                p0 == 1 && p1 == 3 -> { bits.append('1'); errSum += OokDecoding.tickError(us[i], base); errN += 1; i += 2 }
                 else -> return null
             }
         }
         if (bits.length < CODED_BITS - 1) return null
 
-        val hex = MonitorParser.bytesToHex(OokDecoding.bitsToBytes(bits.toString()))
+        val frame = bits.toString()
+        val meanErr = if (errN > 0) errSum / errN else 0.5
+        // hardware + soft sync were matched by the gate (separator); completeness
+        // = did we recover the full coded-bit count.
+        val somfyScore = Scoring.score(0.62f,
+            Scoring.quality(meanErr, separator = true, exactBits = frame.length == CODED_BITS))
+        val hex = MonitorParser.bytesToHex(OokDecoding.bitsToBytes(frame))
+        // The 81 payload bits are presented as three codes over a byte-aligned
+        // (88-bit / 11-byte) view, MSB-first: code0 = bits[0..31],
+        // code1 = bits[32..63], code3 = bits[64..87] (the last 7 bits are pad).
+        val padded = frame.padEnd(88, '0')
+        val code0 = OokDecoding.bitsToLong(padded.substring(0, 32))
+        val code1 = OokDecoding.bitsToLong(padded.substring(32, 64))
+        val code3 = OokDecoding.bitsToLong(padded.substring(64, 88))
 
         return AnalysisResult(
             analyzerId = id,
-            protocol = "Somfy RTS (${bits.length} bit)",
-            score = 0.78f,
-            summary = "frame=$hex (Te≈${base}us) — zaszyfrowany rolling-code",
+            protocol = "Somfy RTS (${frame.length} bit)",
+            score = somfyScore,
+            summary = "frame=$hex (Te≈${base}us) — encrypted rolling code",
             fields = listOf(
-                ProtoField("bits", "Bity ramki (Manchester)", bits.toString(), FieldType.BITS),
-                ProtoField("hex", "Bajty (hex)", hex, FieldType.HEX, editable = false),
-                ProtoField("te", "Pół-takt Te [us]", base.toString(), FieldType.DEC),
+                ProtoField("code0", "Code0 (32-bit)", "0x%08X".format(code0), FieldType.HEX),
+                ProtoField("code1", "Code1 (32-bit)", "0x%08X".format(code1), FieldType.HEX),
+                ProtoField("code3", "Code3 (24-bit)", "0x%06X".format(code3), FieldType.HEX),
+                ProtoField("next_code", "Next code (0-12)", "0", FieldType.TICKER, min = 0, max = 12),
+                ProtoField("te", "Half-bit Te [us]", base.toString(), FieldType.DEC),
+                ProtoField("len", "Frame bits", frame.length.toString(), FieldType.DEC, editable = false),
             ),
             canTransmit = true,
         ) { edited -> somfyEncode(edited, base) }
     }
 }
 
+/**
+ * Somfy "next key" XOR table, indexed by next_code (0..12). Index 0 is a no-op;
+ * a non-zero next_code XORs code0 (the 32-bit first code word) by this value to
+ * produce the next rolling key before the frame is reassembled.
+ */
+internal val SOMFY_NEXT_KEY_XOR = longArrayOf(
+    0x00000000, 0x00018180, 0x00028280, 0x00048480, 0x00088880, 0x00090900,
+    0x00050500, 0x000F0F00, 0x000E8E80, 0x000C0C00, 0x00060600, 0x00078780, 0x00030300,
+)
+
 internal fun somfyEncode(fields: List<ProtoField>, defBase: Int): TxFrame? {
-    val bits = fields.firstOrNull { it.key == "bits" }?.value?.filter { it == '0' || it == '1' } ?: return null
     val te = fields.firstOrNull { it.key == "te" }?.value?.toIntOrNull() ?: defBase
+
+    // Build the payload bit string. New scheme: reassemble from code0/code1/code3
+    // (with the next_code XOR applied to code0). Fall back to a raw "bits" field
+    // for packets saved under the old scheme.
+    val hasCodes = fields.any { it.key == "code0" }
+    val rawBits = fields.firstOrNull { it.key == "bits" }?.value?.filter { it == '0' || it == '1' }
+    val bits: String = if (!hasCodes && rawBits != null) {
+        rawBits
+    } else {
+        val c0base = fields.firstOrNull { it.key == "code0" }?.value?.let { parseLong(it) } ?: return null
+        val c1 = (fields.firstOrNull { it.key == "code1" }?.value?.let { parseLong(it) } ?: 0L) and 0xFFFFFFFFL
+        val c3 = (fields.firstOrNull { it.key == "code3" }?.value?.let { parseLong(it) } ?: 0L) and 0xFFFFFFL
+        val next = fields.firstOrNull { it.key == "next_code" }?.value?.toIntOrNull()?.coerceIn(0, 12) ?: 0
+        val len = (fields.firstOrNull { it.key == "len" }?.value?.toIntOrNull() ?: 81).coerceIn(1, 88)
+        var c0 = c0base and 0xFFFFFFFFL
+        if (next != 0) c0 = c0 xor SOMFY_NEXT_KEY_XOR[next]
+        val assembled = OokDecoding.longToBits(c0, 32) +
+            OokDecoding.longToBits(c1, 32) +
+            OokDecoding.longToBits(c3, 24)
+        assembled.take(len)
+    }
     if (bits.isEmpty()) return null
     val out = ArrayList<Int>()
     // 24-pulse hardware sync: first is (4+1)*Te, rest 4*Te

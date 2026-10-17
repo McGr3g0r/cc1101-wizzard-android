@@ -45,7 +45,7 @@ private fun dark(bg: Long, surface: Long, variant: Long, primary: Long) = darkCo
 )
 
 val THEME_TEMPLATES: List<ThemeTemplate> = listOf(
-    ThemeTemplate("graphite", "Grafit (domyślny)", dark(0xFF1E2127, 0xFF262A32, 0xFF2E333C, 0xFF4FC3F7)),
+    ThemeTemplate("graphite", "Graphite (default)", dark(0xFF1E2127, 0xFF262A32, 0xFF2E333C, 0xFF4FC3F7)),
     ThemeTemplate("midnight", "Midnight Blue", dark(0xFF0D1B2A, 0xFF16263A, 0xFF1E3350, 0xFF4DA3FF)),
     ThemeTemplate("purple", "Deep Purple", dark(0xFF1A1326, 0xFF241834, 0xFF2E2042, 0xFFB388FF)),
     ThemeTemplate("forest", "Forest", dark(0xFF12201A, 0xFF182C24, 0xFF20392F, 0xFF4CD08A)),
