@@ -77,7 +77,10 @@ gear icon in the top bar (a separate screen, not a tab).
    registered analyzer, ranked best-first; fields (codes, counters, timings,
    bytes) are editable and can be saved to `data/` (JSON + a human-readable
    `.txt`) and re-transmitted. If GPS tagging is enabled, saved packets include
-   coordinates.
+   coordinates. With **capture coalescing** on (the default), tapping a monitor
+   line interprets the whole group of consecutive captures that line belongs to —
+   repeats of one transmission, or a frame split across captures — not just that
+   single capture (see **Monitor capture** below).
 3. **TX** — pick a radio profile and frequency (433.92 / 433.42 / 315 MHz);
    load a signal from **disk** (file browser: `data/`, app-external dir, device
    storage, with up navigation), via **"Open .sub…"** (SAF, any location, e.g.
@@ -97,8 +100,11 @@ gear icon in the top bar (a separate screen, not a tab).
 
 **Settings** (gear icon): GPS tagging of packets, automatic reconnect, colour
 theme (Graphite / Midnight Blue / Deep Purple / Forest / Amber Dark / Light),
-default inter-frame gap (ms); plus USB adapter selection, radio interface
-(`r0`…), profile management and the list of registered analyzers.
+default inter-frame gap (ms); the **OOK capture window** (min pulse / frame gap)
+and **RSSI gate**; **capture coalescing** (combine consecutive captures + its time
+window); plus USB adapter selection, radio interface (`r0`…), profile management
+and the list of registered analyzers. The capture window, RSSI gate and
+coalescing are described under **Monitor capture** below.
 
 ## "Right device" verification
 
@@ -112,6 +118,48 @@ While the monitor is running the app blocks sending profiles and any other
 command to the RP2040 — only `monitor stop` is allowed. The block is enforced in
 the CLI layer and the cc1101 / TX / Settings controls are greyed out with a
 banner.
+
+### Monitor capture (OOK window, RSSI gate, coalescing)
+
+**OOK capture window.** Two parameters shape each OOK capture (firmware build 2+;
+older firmware ignores them): **min pulse** — the shortest edge kept (trims runts)
+— and **frame gap** (`maxGapUs`) — a continuous LOW this long ends a frame. The
+firmware captures one aligned frame per gap, so set the frame gap *above* the
+longest LOW inside a frame and *below* the silence between repeats, giving one
+capture = one complete frame. The default is **15000 µs**. Avoid values near a
+protocol's internal gap: an HCS/KeeLoq header gap is ~10 ticks ≈ **4000 µs at
+Te=400**, so a frame gap around 4000 can cut an HCS frame in two (preamble in one
+capture, data bits in the next) — which coalescing can still recover, but it is
+cleaner not to split in the first place.
+
+**RSSI gate.** A carrier-sense threshold in dBm: the firmware only starts a
+capture when RSSI is at or above it (default **−85**). Lower it in a quiet RF
+environment to catch weaker remotes; raise it where the noise floor is high. It is
+sent as the optional 8th argument of `monitor start` and shown in Settings as a
+magnitude (`−dBm`); firmware without it simply ignores the extra token.
+
+**Capture coalescing.** The firmware reports every capture raw and paces them
+~300 ms apart, so one button press (which repeats the same frame several times)
+arrives as a short run of captures close in time. With coalescing on (Settings →
+*Capture coalescing*, default on), the app groups consecutive captures of the same
+interface and kind that arrive within the **group window** (default 500 ms);
+a capture that arrives later than the window starts a new group ("too far apart" =
+a different transmission). Tapping any line in a group interprets the whole group:
+
+- **Decode-and-vote** — every capture is decoded; per analyzer the best-scoring
+  match is kept and its field values are reconciled by majority vote across the
+  repeats. This corrects a single capture's bit errors and raises confidence when
+  the repeats agree.
+- **Merged-pulse fallback** (OOK, ≥2 captures) — the captures are stitched back
+  into one pulse-train, re-inserting the inter-capture gap the firmware dropped,
+  so a single logical frame that was split across captures (e.g. an HCS frame cut
+  at its header) decodes as a whole. Reassembly preserves bit alignment exactly,
+  so recovered codes match the original.
+
+Results from both are merged, highest score per analyzer winning, and ranked as
+usual. Turn coalescing off to analyse each capture on its own (the pre-coalescing
+behaviour). Synthetic signals (a loaded `.sub` or a composed protocol) are never
+grouped — they always analyse on their own.
 
 ### GPS
 
@@ -139,7 +187,7 @@ transmitted.
 | Set modulation | `radio <if> set mod <mod>` |
 | RX / IDLE / RESET | `radio <if> rx` / `idle` / `reset` |
 | Profiles | `profile list|show|new|add|del|apply` |
-| Monitor start/stop | `monitor start <if> <profile> json` / `monitor stop` |
+| Monitor start/stop | `monitor start <if> <profile> json [minUs] [maxGapUs] [rssiGate]` / `monitor stop` |
 | Transmit (FSK) | `radio <if> send <hex>` |
 | Transmit (OOK) | `radio <if> pulses flush` → `pulses add …` → `pulses play 0 n [repeat] [gapUs]` |
 
@@ -148,6 +196,11 @@ Every transmitted line respects the firmware CLI limits: command buffer
 tokens. Long OOK pulse-trains (`pulses add`) are split so each command stays
 within ≤250 chars **and** ≤60 values (64 − 4 prefix tokens). `send <hex>` is
 rejected if it would exceed the buffer (instead of being silently truncated).
+
+The `monitor start` trailing arguments are optional and positional — `minUs`
+`maxGapUs` (the OOK capture window) then `rssiGate` (carrier-sense dBm). The app
+only appends `rssiGate` once the window args are present, so older firmware that
+doesn't parse the extra token keeps working. See **Monitor capture** above.
 
 ## Protocol analyzer API (plugins)
 
@@ -169,6 +222,13 @@ AnalyzerRegistry.register(MyAnalyzer())
 
 `AnalysisResult.encode(fields)` builds a `TxFrame` (OOK pulses or FSK hex) from
 the (possibly edited) fields — that is what gets transmitted.
+
+An analyzer only ever sees a single `CapturedPacket`; the *group* handling lives
+above it. `CaptureCoalescer` buckets consecutive captures by time and
+`CoalescedAnalysis` runs them — calling each analyzer per capture, voting on
+fields, and (for OOK) re-running them on a reassembled train — then returns the
+same `List<AnalysisResult>` the single-capture path returns. So a new analyzer
+automatically benefits from voting and merge without any extra code.
 
 **Confidence scoring is dynamic.** A match's score is a structural prior (how
 distinctive the framing is) blended with the measured fit of the actual capture
@@ -217,6 +277,9 @@ storage — no root or `adb` needed.
 ## Build/test note
 
 The platform-independent logic (monitor parser, OOK decoders, analyzer API,
-KeeLoq codec, encoders) is compiled and round-trip tested. The Compose/USB layer
-needs the Android SDK and real hardware — verify the USB link and FSK packet
-profiles against a live signal (as the firmware README advises for packet mode).
+KeeLoq codec, encoders, capture coalescing and the cross-capture vote/merge) is
+compiled and round-trip tested — including that an HCS frame split across two
+captures reassembles to the exact code, and that majority voting corrects a
+corrupted repeat. The Compose/USB layer needs the Android SDK and real hardware —
+verify the USB link and FSK packet profiles against a live signal (as the firmware
+README advises for packet mode).
