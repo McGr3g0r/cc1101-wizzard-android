@@ -144,6 +144,7 @@
     <string name="cfg_capture_gap">Frame gap</string>
     <string name="cfg_capture_rssi">RSSI gate</string>
     <string name="cfg_capture_rssi_hint">Only capture when the signal is at or above −(this) dBm. Lower it in a quiet environment to catch weaker remotes; raise it where the noise floor is high.</string>
+    <string name="mon_rssi_sub">Applied when you press Start</string>
     <string name="cfg_coalesce_title">Capture coalescing</string>
     <string name="cfg_coalesce_desc">Combine consecutive monitor captures of one transmission (repeats of the same frame, or a frame split across captures) into a single analysis. Captures more than the window apart are treated as separate signals.</string>
     <string name="cfg_coalesce_enable">Combine consecutive captures</string>

@@ -99,6 +99,20 @@ fun MainTab(vm: AppViewModel) {
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            // RSSI gate, settable right before Start (hidden while capturing, when
+            // commands are locked out anyway). Shares state with Settings, so a
+            // change here persists and shows there too. Negative dBm edited as a
+            // magnitude shown as "−dBm".
+            if (!vm.monitorRunning) {
+                Spacer(Modifier.height(8.dp))
+                MsStepper(
+                    label = stringResource(R.string.cfg_capture_rssi),
+                    sub = stringResource(R.string.mon_rssi_sub),
+                    valueMs = -vm.captureRssiGate,
+                    onChange = { vm.updateCaptureRssiGate(-it) },
+                    step = 1, max = 120, unit = "−dBm",
+                )
+            }
         }
 
         // ---- log ----

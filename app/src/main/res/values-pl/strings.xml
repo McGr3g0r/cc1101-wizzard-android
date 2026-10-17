@@ -140,6 +140,7 @@
     <string name="cfg_capture_gap">Przerwa ramki</string>
     <string name="cfg_capture_rssi">Bramka RSSI</string>
     <string name="cfg_capture_rssi_hint">Przechwytuj tylko, gdy sygnał jest na poziomie −(tyle) dBm lub wyższym. Obniż w cichym otoczeniu, by łapać słabsze piloty; podnieś tam, gdzie poziom szumu jest wysoki.</string>
+    <string name="mon_rssi_sub">Używane po naciśnięciu Start</string>
     <string name="cfg_coalesce_title">Łączenie przechwytów</string>
     <string name="cfg_coalesce_desc">Łączy kolejne przechwyty monitora z jednej transmisji (powtórzenia tej samej ramki lub ramkę rozbitą między przechwyty) w jedną analizę. Przechwyty odległe bardziej niż okno traktowane są jako osobne sygnały.</string>
     <string name="cfg_coalesce_enable">Łącz kolejne przechwyty</string>
