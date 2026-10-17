@@ -117,6 +117,37 @@ fun ConfigTab(vm: AppViewModel) {
                 onChange = { vm.updateCaptureGapUs(it) },
                 step = 100, max = 60000, unit = "µs",
             )
+            Spacer(Modifier.height(6.dp))
+            // RSSI gate is a negative dBm; edited here as a magnitude (shown as −dBm).
+            MsStepper(
+                label = stringResource(R.string.cfg_capture_rssi),
+                sub = stringResource(R.string.cfg_capture_rssi_hint),
+                valueMs = -vm.captureRssiGate,
+                onChange = { vm.updateCaptureRssiGate(-it) },
+                step = 1, max = 120, unit = "−dBm",
+            )
+        }
+
+        // ---- capture coalescing ----
+        SectionCard(stringResource(R.string.cfg_coalesce_title)) {
+            Text(stringResource(R.string.cfg_coalesce_desc), fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.cfg_coalesce_enable),
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = vm.coalesceEnabled, onCheckedChange = { vm.updateCoalesceEnabled(it) })
+            }
+            if (vm.coalesceEnabled) {
+                Spacer(Modifier.height(6.dp))
+                MsStepper(
+                    label = stringResource(R.string.cfg_coalesce_window),
+                    sub = null,
+                    valueMs = vm.coalesceWindowMs,
+                    onChange = { vm.updateCoalesceWindowMs(it) },
+                    step = 50, max = 3000, unit = "ms",
+                )
+            }
         }
 
         // ---- USB device selection ----

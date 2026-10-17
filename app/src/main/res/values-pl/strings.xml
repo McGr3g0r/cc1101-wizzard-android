@@ -138,6 +138,12 @@
     <string name="cfg_capture_desc">Wykrywanie ramki dla przechwytów OOK: najkrótszy zachowywany impuls (ucina runty) oraz przerwa LOW kończąca ramkę. Ustaw przerwę tuż powyżej najdłuższego LOW w ramce, a poniżej przerwy między powtórzeniami — wtedy jedno przechwycenie = jedna pełna ramka. Wymaga firmware build 2+ (starsze ignorują te parametry).</string>
     <string name="cfg_capture_min">Min. impuls</string>
     <string name="cfg_capture_gap">Przerwa ramki</string>
+    <string name="cfg_capture_rssi">Bramka RSSI</string>
+    <string name="cfg_capture_rssi_hint">Przechwytuj tylko, gdy sygnał jest na poziomie −(tyle) dBm lub wyższym. Obniż w cichym otoczeniu, by łapać słabsze piloty; podnieś tam, gdzie poziom szumu jest wysoki.</string>
+    <string name="cfg_coalesce_title">Łączenie przechwytów</string>
+    <string name="cfg_coalesce_desc">Łączy kolejne przechwyty monitora z jednej transmisji (powtórzenia tej samej ramki lub ramkę rozbitą między przechwyty) w jedną analizę. Przechwyty odległe bardziej niż okno traktowane są jako osobne sygnały.</string>
+    <string name="cfg_coalesce_enable">Łącz kolejne przechwyty</string>
+    <string name="cfg_coalesce_window">Okno grupowania</string>
     <string name="cfg_usb_title">Urządzenie USB (115200 8N1)</string>
     <string name="cfg_detected_adapters">Wykryte adaptery</string>
     <string name="cfg_scan">Skanuj</string>

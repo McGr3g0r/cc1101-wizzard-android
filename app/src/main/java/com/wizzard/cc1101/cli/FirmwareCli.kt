@@ -164,17 +164,23 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
     /**
      * Start the monitor. [minUs]/[maxGapUs] (both > 0) are the OOK capture
      * window parameters added in firmware build 2 — the shortest pulse kept and
-     * the inter-frame gap that ends a frame. Appended as
-     * `monitor start <if> <profile> json <minUs> <maxGapUs>`; omitted (<= 0) they
-     * fall back to the firmware defaults for compatibility with older builds.
+     * the inter-frame gap that ends a frame. [rssiGate] (< 0 dBm) is the OOK
+     * carrier-sense gate added later: the firmware only captures when RSSI is at
+     * or above it. Appended as
+     * `monitor start <if> <profile> json <minUs> <maxGapUs> [rssiGate]`; each
+     * trailing argument is only sent when the ones before it are present, so they
+     * fall back to the firmware defaults on older builds (which simply ignore an
+     * extra token they don't parse).
      */
     suspend fun monitorStart(
         iface: String, profile: String, json: Boolean = true,
-        minUs: Int = 0, maxGapUs: Int = 0,
+        minUs: Int = 0, maxGapUs: Int = 0, rssiGate: Int = 0,
     ): CliEngine.CmdResult {
         val fmt = if (json) "json" else "hex"
-        val extra = if (minUs > 0 && maxGapUs > 0) " $minUs $maxGapUs" else ""
-        return engine.send("monitor start $iface $profile $fmt$extra", timeoutMs = 5000)
+        val window = if (minUs > 0 && maxGapUs > 0) " $minUs $maxGapUs" else ""
+        // rssiGate only makes sense once the window args are present (it's the 8th token)
+        val gate = if (window.isNotEmpty() && rssiGate < 0) " $rssiGate" else ""
+        return engine.send("monitor start $iface $profile $fmt$window$gate", timeoutMs = 5000)
     }
 
     suspend fun monitorStop() = engine.send("monitor stop")

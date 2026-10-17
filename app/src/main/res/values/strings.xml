@@ -142,6 +142,12 @@
     <string name="cfg_capture_desc">Frame detection for OOK captures: the shortest pulse kept (trims runts) and the LOW gap that ends a frame. Set the gap just above the longest LOW inside a frame and below the gap between repeats, so one capture = one complete frame. Needs firmware build 2+ (ignored by older firmware).</string>
     <string name="cfg_capture_min">Min pulse</string>
     <string name="cfg_capture_gap">Frame gap</string>
+    <string name="cfg_capture_rssi">RSSI gate</string>
+    <string name="cfg_capture_rssi_hint">Only capture when the signal is at or above −(this) dBm. Lower it in a quiet environment to catch weaker remotes; raise it where the noise floor is high.</string>
+    <string name="cfg_coalesce_title">Capture coalescing</string>
+    <string name="cfg_coalesce_desc">Combine consecutive monitor captures of one transmission (repeats of the same frame, or a frame split across captures) into a single analysis. Captures more than the window apart are treated as separate signals.</string>
+    <string name="cfg_coalesce_enable">Combine consecutive captures</string>
+    <string name="cfg_coalesce_window">Group window</string>
     <string name="cfg_usb_title">USB device (115200 8N1)</string>
     <string name="cfg_detected_adapters">Detected adapters</string>
     <string name="cfg_scan">Scan</string>

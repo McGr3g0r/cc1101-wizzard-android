@@ -35,6 +35,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = com.wizzard.cc1101.util.Prefs(app)
     private val location = com.wizzard.cc1101.util.LocationHelper(app)
 
+    /** Buckets consecutive monitor captures of one transmission (see Settings). */
+    private val coalescer = com.wizzard.cc1101.protocol.CaptureCoalescer(
+        enabled = prefs.coalesceEnabled, windowMs = prefs.coalesceWindowMs,
+    )
+
     /** Localized string lookup from the application context. */
     private fun str(resId: Int, vararg args: Any): String =
         getApplication<Application>().getString(resId, *args)
@@ -215,6 +220,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updateCaptureMinUs(us: Int) { captureMinUs = us.coerceIn(0, 2000); prefs.captureMinUs = captureMinUs }
     fun updateCaptureGapUs(us: Int) { captureGapUs = us.coerceIn(0, 60000); prefs.captureGapUs = captureGapUs }
 
+    /** OOK carrier-sense gate [dBm] sent to the firmware monitor (8th arg). */
+    var captureRssiGate by mutableStateOf(prefs.captureRssiGate); private set
+    fun updateCaptureRssiGate(dbm: Int) {
+        captureRssiGate = dbm.coerceIn(-120, 0); prefs.captureRssiGate = captureRssiGate
+    }
+
+    // ---- capture coalescing (group consecutive monitor captures) ----------
+    var coalesceEnabled by mutableStateOf(prefs.coalesceEnabled); private set
+    fun updateCoalesceEnabled(on: Boolean) {
+        coalesceEnabled = on; prefs.coalesceEnabled = on; coalescer.enabled = on
+    }
+
+    var coalesceWindowMs by mutableStateOf(prefs.coalesceWindowMs); private set
+    fun updateCoalesceWindowMs(ms: Int) {
+        coalesceWindowMs = ms.coerceIn(50, 3000); prefs.coalesceWindowMs = coalesceWindowMs
+        coalescer.windowMs = coalesceWindowMs
+    }
+
     fun hasLocationPermission() = location.hasPermission()
 
     /** Whether the Konfiguracja screen (gear icon) is shown. */
@@ -236,7 +259,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             logs.add(line)
             if (logs.size > MAX_LOG) repeat(logs.size - MAX_LOG) { logs.removeAt(0) }
         }
-        engine.onMonitor = { /* packet is already attached to its MONITOR log line */ }
+        // packet is already attached to its MONITOR log line; also bucket it so a
+        // later tap can analyse the whole transmission, not just this one capture.
+        engine.onMonitor = { pkt -> coalescer.offer(pkt, System.currentTimeMillis()) }
         engine.onConnection = { state, dev ->
             conn = state
             connectedName = dev?.let { it.productName ?: it.deviceName }
@@ -306,6 +331,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         serial.disconnect()
         ifaces.clear()
         radioInfo.clear()
+        coalescer.reset()
     }
 
     /** Call `info` to identify the device, then enumerate interfaces/profiles. */
@@ -395,8 +421,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- monitor ----------------------------------------------------------
 
     fun startMonitor(profile: String) = scope {
+        coalescer.reset()   // fresh session: don't group across start/stop
         val res = fw.monitorStart(selectedIface, profile, json = true,
-            minUs = captureMinUs, maxGapUs = captureGapUs)
+            minUs = captureMinUs, maxGapUs = captureGapUs, rssiGate = captureRssiGate)
         monitorRunning = res.ok
         engine.blockWhileMonitor = monitorRunning   // lock out other commands while capturing
     }
@@ -414,7 +441,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         composeId = null                 // packet view takes over from compose
         selectedPacket = packet
         results.clear()
-        results.addAll(AnalyzerRegistry.analyze(packet))
+        // If this capture belongs to a multi-capture group (repeats of one
+        // transmission, or a frame split across captures), analyse the whole
+        // group; otherwise fall back to the single capture. Synthetic packets
+        // (sample / tx) are never bucketed, so they take the single path.
+        val group = if (coalesceEnabled) coalescer.groupFor(packet) else null
+        val res = if (group != null && group.size > 1)
+            com.wizzard.cc1101.protocol.CoalescedAnalysis.analyze(group, captureGapUs)
+        else
+            AnalyzerRegistry.analyze(packet)
+        results.addAll(res)
         selectResult(results.firstOrNull())
         selectedTab = 1
     }
@@ -540,7 +576,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         transmit(frame)
     }
 
-    fun clearLogs() = logs.clear()
+    fun clearLogs() { logs.clear(); coalescer.reset() }
 
     /**
      * Save the current log (each line prefixed with its `[HH:mm:ss.SSS]`
