@@ -76,7 +76,31 @@ object ProtocolTemplates {
                 ProtoField("hex", "Payload (hex)", "a1b2c3d4", FieldType.HEX),
             )
         },
+        // ---- weather sensors (spoof a reading) ----
+        Template("nexus", "Nexus (weather, 36-bit OOK)") { weatherDefaults(idDefault = "0x4B") },
+        Template("acurite609", "Acurite 609TXC (weather)") { weatherDefaults(idDefault = "0xA3", withChannel = false) },
+        Template("lacrosse_tx141", "LaCrosse TX141TH (weather)") { weatherDefaults(idDefault = "0x7C") },
+        Template("oregon_v21", "Oregon Scientific v2.1 (weather)") {
+            listOf(
+                ProtoField("id", "Sensor id", "0x1D20", FieldType.HEX),
+                ProtoField("rolling", "Rolling id (8-bit)", "0x2F", FieldType.HEX),
+                ProtoField("channel", "Channel (1..3)", "1", FieldType.TICKER, min = 1, max = 3),
+                ProtoField("battery", "Battery OK (1/0)", "1", FieldType.TICKER, min = 0, max = 1),
+                ProtoField("temp", "Temperature [°C]", "21.5", FieldType.DEC),
+                ProtoField("humidity", "Humidity [%]", "48", FieldType.TICKER, min = 0, max = 100),
+                ProtoField("te", "Base time Te [us]", "488", FieldType.DEC),
+            )
+        },
     )
+
+    private fun weatherDefaults(idDefault: String, withChannel: Boolean = true): List<ProtoField> = buildList {
+        add(ProtoField("id", "Sensor id", idDefault, FieldType.HEX))
+        if (withChannel) add(ProtoField("channel", "Channel (1..3)", "1", FieldType.TICKER, min = 1, max = 3))
+        add(ProtoField("battery", "Battery OK (1/0)", "1", FieldType.TICKER, min = 0, max = 1))
+        add(ProtoField("temp", "Temperature [°C]", "21.5", FieldType.DEC))
+        add(ProtoField("humidity", "Humidity [%]", "48", FieldType.TICKER, min = 0, max = 100))
+        add(ProtoField("te", "Base time Te [us]", "500", FieldType.DEC))
+    }
 
     private fun hcsDefaults(): List<ProtoField> = listOf(
         ProtoField("enc", "Hopping code (32-bit, encrypted)", "0x00000000", FieldType.HEX),

@@ -123,7 +123,7 @@ fun MainScreen(vm: AppViewModel) {
                     Text(stringResource(R.string.about_copyright))
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}",
+                        "${BuildConfig.VERSION_NAME}  ·  ${BuildConfig.GIT_HASH}  (build ${BuildConfig.VERSION_CODE})",
                         fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

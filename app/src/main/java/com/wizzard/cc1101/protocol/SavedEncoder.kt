@@ -64,6 +64,10 @@ object SavedEncoder {
                 out[idb.size + 1] = ((cnt shr 8) and 0xFF).toByte()
                 TxFrame.FskHex(MonitorParser.bytesToHex(out))
             }
+            "nexus" -> nexusEncode(fields)
+            "acurite609" -> acurite609Encode(fields)
+            "lacrosse_tx141" -> lacrosseEncode(fields)
+            "oregon_v21" -> oregonEncode(fields)
             else -> null
         }
     }

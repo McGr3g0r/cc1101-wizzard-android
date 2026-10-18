@@ -5,11 +5,32 @@
  * (c) 2026
  */
 
+import java.io.ByteArrayOutputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+/** Run a git command, returning its trimmed stdout or "" on any failure. */
+fun git(vararg args: String): String = try {
+    val out = ByteArrayOutputStream()
+    exec {
+        commandLine(listOf("git") + args)
+        standardOutput = out
+        errorOutput = ByteArrayOutputStream()
+        isIgnoreExitValue = true
+    }
+    out.toString().trim()
+} catch (e: Exception) { "" }
+
+// versionName comes from the latest git tag (e.g. "v2.3"); versionCode is the
+// commit count (always increasing); the short commit hash is exposed separately.
+val gitTag: String = git("describe", "--tags", "--abbrev=0").ifEmpty { "v2.2" }
+val gitHash: String = git("rev-parse", "--short", "HEAD").ifEmpty { "nogit" }
+val gitDirty: Boolean = git("status", "--porcelain").isNotEmpty()
+val gitCount: Int = git("rev-list", "--count", "HEAD").toIntOrNull() ?: 1
 
 android {
     namespace = "com.wizzard.cc1101"
@@ -19,8 +40,9 @@ android {
         applicationId = "com.wizzard.cc1101"
         minSdk = 29          // Android 10+
         targetSdk = 34
-        versionCode = 2
-        versionName = "2.2"
+        versionCode = gitCount
+        versionName = gitTag
+        buildConfigField("String", "GIT_HASH", "\"$gitHash${if (gitDirty) "-dirty" else ""}\"")
     }
 
     buildTypes {

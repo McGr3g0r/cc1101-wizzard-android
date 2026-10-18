@@ -76,7 +76,7 @@ class SplashActivity : ComponentActivity() {
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}",
+                        text = "${BuildConfig.VERSION_NAME}  ·  ${BuildConfig.GIT_HASH}",
                         color = Color(0xFF9AA0AA),       // muted grey
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
