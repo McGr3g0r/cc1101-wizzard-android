@@ -1,3 +1,10 @@
+/*
+ * CC1101 Wizzard
+ * Author: Grzegorz Rajtar
+ * e-mail: mcgregor@blackmesaeast.com.pl
+ * (c) 2026
+ */
+
 package com.wizzard.cc1101.ui
 
 import android.app.Activity
@@ -5,7 +12,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import com.wizzard.cc1101.BuildConfig
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -24,6 +33,7 @@ private val TAB_TITLES = listOf("Monitor", "Protocol", "TX", "cc1101")
 fun MainScreen(vm: AppViewModel) {
     val context = LocalContext.current
     var showCloseDialog by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
 
     // Back: close the settings screen first; otherwise ask about the monitor.
     BackHandler(enabled = true) {
@@ -54,6 +64,9 @@ fun MainScreen(vm: AppViewModel) {
                     },
                     actions = {
                         if (!vm.showSettings) {
+                            IconButton(onClick = { showAbout = true }) {
+                                Icon(Icons.Default.Info, stringResource(R.string.about_title))
+                            }
                             IconButton(onClick = { vm.showSettings = true }) {
                                 Icon(Icons.Default.Settings, stringResource(R.string.settings_title))
                             }
@@ -95,6 +108,31 @@ fun MainScreen(vm: AppViewModel) {
                 3 -> Cc1101Tab(vm)
             }
         }
+    }
+
+    if (showAbout) {
+        AlertDialog(
+            onDismissRequest = { showAbout = false },
+            title = { Text(stringResource(R.string.about_app_name), fontFamily = FontFamily.Monospace) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.about_author))
+                    Spacer(Modifier.height(2.dp))
+                    Text(stringResource(R.string.about_email))
+                    Spacer(Modifier.height(2.dp))
+                    Text(stringResource(R.string.about_copyright))
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "v${BuildConfig.VERSION_NAME}  ·  build ${BuildConfig.VERSION_CODE}",
+                        fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAbout = false }) { Text(stringResource(R.string.ok)) }
+            },
+        )
     }
 
     if (showCloseDialog) {

@@ -185,4 +185,10 @@
     <string name="cfg_ooktx_gpio">Bit-bang GDO0 (surowe µs)</string>
     <string name="cfg_ooktx_factor">Nadpróbkowanie FIFO</string>
     <string name="cfg_ooktx_factor_hint">Kwant = Te ÷ ta wartość (1–32). Wyżej = mniejsze zakłamanie czasów impulsów dla zjitterowanych nagrań, więcej danych FIFO. Bez wpływu na ramki przegenerowane (dokładne wielokrotności Te).</string>
+    <string name="about_title">O programie</string>
+    <string name="about_app_name">CC1101 Wizzard</string>
+    <string name="about_author">Autor: Grzegorz Rajtar</string>
+    <string name="about_email">e-mail: mcgregor@blackmesaeast.com.pl</string>
+    <string name="about_copyright">(c) 2026</string>
+    <string name="ok">OK</string>
 </resources>

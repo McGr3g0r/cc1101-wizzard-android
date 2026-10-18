@@ -1,3 +1,10 @@
+/*
+ * CC1101 Wizzard
+ * Author: Grzegorz Rajtar
+ * e-mail: mcgregor@blackmesaeast.com.pl
+ * (c) 2026
+ */
+
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.wizzard.cc1101.ui

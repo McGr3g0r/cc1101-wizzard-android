@@ -1,3 +1,10 @@
+/*
+ * CC1101 Wizzard
+ * Author: Grzegorz Rajtar
+ * e-mail: mcgregor@blackmesaeast.com.pl
+ * (c) 2026
+ */
+
 package com.wizzard.cc1101.protocol
 
 /**

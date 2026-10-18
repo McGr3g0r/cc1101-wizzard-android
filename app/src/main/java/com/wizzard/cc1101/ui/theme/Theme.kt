@@ -1,3 +1,10 @@
+/*
+ * CC1101 Wizzard
+ * Author: Grzegorz Rajtar
+ * e-mail: mcgregor@blackmesaeast.com.pl
+ * (c) 2026
+ */
+
 package com.wizzard.cc1101.ui.theme
 
 import androidx.compose.material3.ColorScheme
@@ -15,6 +22,7 @@ val Graphite = Color(0xFF1E2127)
 val GraphiteSurface = Color(0xFF262A32)
 val GraphiteElevated = Color(0xFF2E333C)
 val Accent = Color(0xFF4FC3F7)
+val BrandOrange = Color(0xFFFF8C00)   // splash title + waveform logo
 
 // Log line colours (kept constant across templates for recognisability).
 val ColorTx = Color(0xFF80CBC4)

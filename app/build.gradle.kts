@@ -1,3 +1,10 @@
+/*
+ * CC1101 Wizzard
+ * Author: Grzegorz Rajtar
+ * e-mail: mcgregor@blackmesaeast.com.pl
+ * (c) 2026
+ */
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,8 +19,8 @@ android {
         applicationId = "com.wizzard.cc1101"
         minSdk = 29          // Android 10+
         targetSdk = 34
-        versionCode = 1
-        versionName = "2.1"
+        versionCode = 2
+        versionName = "2.2"
     }
 
     buildTypes {
@@ -34,6 +41,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true   // exposes BuildConfig.VERSION_NAME / VERSION_CODE
     }
     packaging {
         resources {
