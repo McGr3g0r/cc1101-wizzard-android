@@ -183,4 +183,10 @@
     <string name="vm_cannot_open_folder">Cannot open folder</string>
     <string name="cli_monitor_locked">monitor active — stop the monitor to send commands</string>
     <string name="fw_packet_too_long">packet too long for the device command buffer (%1$d&gt;%2$d chars)</string>
+    <string name="cfg_ooktx_title">OOK transmit</string>
+    <string name="cfg_ooktx_desc">How re-generated OOK is keyed out. FIFO quantises each pulse to the frame’s averaged Te and clocks the bits from the radio’s own generator (jitter-free, exact for frames rebuilt from a decode). Bit-bang toggles GDO0 from the MCU and replays the exact microseconds.</string>
+    <string name="cfg_ooktx_fifo">Hardware FIFO (quantised to Te)</string>
+    <string name="cfg_ooktx_gpio">GDO0 bit-bang (raw µs)</string>
+    <string name="cfg_ooktx_factor">FIFO oversampling</string>
+    <string name="cfg_ooktx_factor_hint">Quantum = Te ÷ this (1–32). Higher = less pulse-timing distortion on jittery captures, more FIFO data. No effect on re-generated frames (exact Te multiples).</string>
 </resources>

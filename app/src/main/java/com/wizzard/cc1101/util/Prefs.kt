@@ -10,9 +10,16 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_GPS, false)
         set(v) { sp.edit().putBoolean(KEY_GPS, v).apply() }
 
-    /** Gap in milliseconds inserted between repeated transmissions (TX tab). */
+    /**
+     * Extra gap [ms] inserted between repeated transmissions, on top of the frame's
+     * own trailing guard. Default 0: an encoded OOK frame already ends with its
+     * inter-frame guard (~15.6 ms for HCS), so repeats come ~15.6 ms apart — the
+     * spacing a real remote uses and what the working raw replay has. A large extra
+     * gap (the old 200 ms default) pushed repeats too far apart for receivers that
+     * expect consecutive frames.
+     */
     var txGapMs: Int
-        get() = sp.getInt(KEY_TX_GAP, 200)
+        get() = sp.getInt(KEY_TX_GAP, 0)
         set(v) { sp.edit().putInt(KEY_TX_GAP, v.coerceIn(0, 10000)).apply() }
 
     /** Selected colour-template id. */
@@ -24,6 +31,25 @@ class Prefs(context: Context) {
     var autoReconnect: Boolean
         get() = sp.getBoolean(KEY_AUTORECONNECT, false)
         set(v) { sp.edit().putBoolean(KEY_AUTORECONNECT, v).apply() }
+
+    /**
+     * Transmit OOK via the firmware's hardware-clocked FIFO (`pulses playfifo`,
+     * quantised to the frame's averaged Te) instead of the GDO0 bit-bang
+     * (`pulses play`). Off keeps the original path.
+     */
+    var ookTxFifo: Boolean
+        get() = sp.getBoolean(KEY_OOK_TX_FIFO, false)
+        set(v) { sp.edit().putBoolean(KEY_OOK_TX_FIFO, v).apply() }
+
+    /**
+     * FIFO oversampling factor (1..32): FIFO quantum = Te / factor. Higher values
+     * quantise pulses onto a finer grid (less timing distortion on jittery raw
+     * captures) at the cost of more FIFO bytes. Default 8 (the firmware's own
+     * guideline of ~1/8 of the shortest pulse).
+     */
+    var ookTxFifoFactor: Int
+        get() = sp.getInt(KEY_OOK_TX_FIFO_FACTOR, 8)
+        set(v) { sp.edit().putInt(KEY_OOK_TX_FIFO_FACTOR, v.coerceIn(1, 32)).apply() }
 
     /** OOK monitor capture: minimum pulse length [us] (runts shorter are trimmed). */
     var captureMinUs: Int
@@ -78,6 +104,8 @@ class Prefs(context: Context) {
         private const val KEY_TX_GAP = "tx_gap_ms"
         private const val KEY_THEME = "theme_id"
         private const val KEY_AUTORECONNECT = "auto_reconnect"
+        private const val KEY_OOK_TX_FIFO = "ook_tx_fifo"
+        private const val KEY_OOK_TX_FIFO_FACTOR = "ook_tx_fifo_factor"
         private const val KEY_CAP_MIN = "capture_min_us"
         private const val KEY_CAP_GAP = "capture_gap_us"
         private const val KEY_CAP_RSSI = "capture_rssi_gate"

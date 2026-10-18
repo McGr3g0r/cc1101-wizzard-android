@@ -179,4 +179,10 @@
     <string name="vm_cannot_open_folder">Nie można otworzyć folderu</string>
     <string name="cli_monitor_locked">monitor aktywny — zatrzymaj monitor, aby wysyłać komendy</string>
     <string name="fw_packet_too_long">pakiet za długi dla bufora komend urządzenia (%1$d&gt;%2$d znaków)</string>
+    <string name="cfg_ooktx_title">Nadawanie OOK</string>
+    <string name="cfg_ooktx_desc">Sposób kluczowania OOK. FIFO kwantuje każdy impuls do uśrednionego Te ramki i taktuje bity generatorem radia (bez jitteru, dokładne dla ramek odtworzonych z dekodu). Bit-bang przełącza GDO0 z MCU i odtwarza dokładne mikrosekundy.</string>
+    <string name="cfg_ooktx_fifo">Sprzętowy FIFO (kwantyzacja do Te)</string>
+    <string name="cfg_ooktx_gpio">Bit-bang GDO0 (surowe µs)</string>
+    <string name="cfg_ooktx_factor">Nadpróbkowanie FIFO</string>
+    <string name="cfg_ooktx_factor_hint">Kwant = Te ÷ ta wartość (1–32). Wyżej = mniejsze zakłamanie czasów impulsów dla zjitterowanych nagrań, więcej danych FIFO. Bez wpływu na ramki przegenerowane (dokładne wielokrotności Te).</string>
 </resources>

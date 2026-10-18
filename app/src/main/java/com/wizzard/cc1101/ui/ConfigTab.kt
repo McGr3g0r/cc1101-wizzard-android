@@ -150,6 +150,30 @@ fun ConfigTab(vm: AppViewModel) {
             }
         }
 
+        // ---- OOK transmit method ----
+        SectionCard(stringResource(R.string.cfg_ooktx_title)) {
+            Text(stringResource(R.string.cfg_ooktx_desc), fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(if (vm.ookTxFifo) R.string.cfg_ooktx_fifo else R.string.cfg_ooktx_gpio),
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
+                )
+                Switch(checked = vm.ookTxFifo, onCheckedChange = { vm.updateOokTxFifo(it) })
+            }
+            if (vm.ookTxFifo) {
+                Spacer(Modifier.height(6.dp))
+                MsStepper(
+                    label = stringResource(R.string.cfg_ooktx_factor),
+                    sub = stringResource(R.string.cfg_ooktx_factor_hint),
+                    valueMs = vm.ookTxFifoFactor,
+                    onChange = { vm.updateOokTxFifoFactor(it) },
+                    step = 1, max = 32, unit = "×",
+                )
+            }
+        }
+
         // ---- USB device selection ----
         SectionCard(stringResource(R.string.cfg_usb_title)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

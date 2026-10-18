@@ -104,7 +104,15 @@ fun TxTab(vm: AppViewModel) {
         }
 
         // ---- signal source: disk browser (File + SAF) + single-file SAF + saved packets ----
-        SectionCard(stringResource(R.string.tx_signal_source)) {
+        CollapsibleSectionCard(
+            title = stringResource(R.string.tx_signal_source),
+            expanded = vm.txSourceExpanded,
+            onToggle = { vm.txSourceExpanded = !vm.txSourceExpanded },
+            collapsedSummary = {
+                Text("${vm.browseItems.size}", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+        ) {
             // quick File-mode roots (app data/, app-ext, device storage)
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 vm.browseRoots().forEach { root ->

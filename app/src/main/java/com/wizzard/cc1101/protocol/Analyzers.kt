@@ -295,7 +295,10 @@ private fun hcsDecode(packet: CapturedPacket, id: String, name: String): Analysi
     if (packet !is CapturedPacket.Ook) return null
     val dr = KeeLoqCodec.decodeResult(packet.us, KeeLoqCodec.HCS) ?: return null
     val bits = dr.bits
-    val base = OokDecoding.dominantBaseBand(packet.us, 250, 600, 400)
+    // same band as the decoder (KeeLoqCodec.HCS) so the shown/edited Te matches
+    // what decodeResult used — including sub-250us Te remotes.
+    val base = OokDecoding.dominantBaseBand(
+        packet.us, KeeLoqCodec.HCS.baseLo, KeeLoqCodec.HCS.baseHi, KeeLoqCodec.HCS.baseFallback)
 
     val enc = KeeLoqCodec.field(bits, 0, 32)
     val serial = KeeLoqCodec.field(bits, 32, 28)

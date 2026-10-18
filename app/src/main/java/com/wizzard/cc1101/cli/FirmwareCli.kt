@@ -209,8 +209,53 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
      * every step reported OK.
      */
     suspend fun sendPulses(iface: String, us: IntArray, repeat: Int = 1, gapUs: Long = 0): Boolean {
-        if (us.isEmpty()) return false
-        if (!engine.send("radio $iface pulses flush").ok) return false
+        val count = flushAndAdd(iface, us) ?: return false
+        val rep = repeat.coerceAtLeast(1)
+        val play = if (rep > 1 || gapUs > 0)
+            "radio $iface pulses play 0 $count $rep $gapUs"
+        else
+            "radio $iface pulses play 0 $count"
+        // playing repeat×frames can take a while on-device; allow a generous timeout
+        val timeout = 4000L + rep * 1500L
+        return engine.send(play, timeoutMs = timeout).ok
+    }
+
+    /**
+     * Hardware-clocked OOK transmit via the firmware's `pulses playfifo` (build 12+):
+     * each stored pulse is quantised to `round(duration / unitUs)` bits and streamed
+     * through the TX FIFO at the radio's bit-rate generator, instead of bit-banging
+     * GDO0. Bit timing is then jitter-free, and for a frame rebuilt from a decode
+     * (pulses are exact multiples of Te) choosing `unitUs = Te` reproduces it
+     * losslessly; for a raw capture the same choice snaps per-pulse jitter onto the
+     * Te grid.
+     *
+     * The FIFO clocks each bit at the radio's data rate. Firmware build 12a+
+     * derives that from `unitUs` itself (DRATE = round(1e6/unitUs), clamped to the
+     * CC1101 range) and restores the profile's rate after the burst, so this must
+     * NOT set `drate` separately: doing so would make the firmware save and then
+     * "restore" our value instead of the profile's, clobbering the profile's data
+     * rate. Returns true if every step reported OK.
+     */
+    suspend fun sendPulsesFifo(
+        iface: String, us: IntArray, unitUs: Int, repeat: Int = 1, gapUs: Long = 0,
+    ): Boolean {
+        if (unitUs < 1) return false
+        val count = flushAndAdd(iface, us) ?: return false
+        val rep = repeat.coerceAtLeast(1)
+        val play = "radio $iface pulses playfifo 0 $count $unitUs $rep $gapUs"
+        val timeout = 4000L + rep * 1500L
+        return engine.send(play, timeoutMs = timeout).ok
+    }
+
+    /**
+     * `pulses flush` then the train as one or more `pulses add` commands, each
+     * split to respect BOTH the device command-line length (MAX_CMD_LEN) and the
+     * parser token limit (MAX_VALUES_PER_ADD). Returns the number of values stored,
+     * or null if any command failed.
+     */
+    private suspend fun flushAndAdd(iface: String, us: IntArray): Int? {
+        if (us.isEmpty()) return null
+        if (!engine.send("radio $iface pulses flush").ok) return null
 
         val prefix = "radio $iface pulses add"
         val sb = StringBuilder(prefix)
@@ -221,21 +266,14 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
             val tooLong = sb.length + token.length > MAX_CMD_LEN
             val tooMany = valuesInChunk >= MAX_VALUES_PER_ADD
             if (tooLong || tooMany) {
-                if (!engine.send(sb.toString()).ok) return false
+                if (!engine.send(sb.toString()).ok) return null
                 sb.setLength(0); sb.append(prefix); valuesInChunk = 0
             }
             sb.append(token); valuesInChunk++; count++
         }
         if (valuesInChunk > 0) {
-            if (!engine.send(sb.toString()).ok) return false
+            if (!engine.send(sb.toString()).ok) return null
         }
-        val rep = repeat.coerceAtLeast(1)
-        val play = if (rep > 1 || gapUs > 0)
-            "radio $iface pulses play 0 $count $rep $gapUs"
-        else
-            "radio $iface pulses play 0 $count"
-        // playing repeat×frames can take a while on-device; allow a generous timeout
-        val timeout = 4000L + rep * 1500L
-        return engine.send(play, timeoutMs = timeout).ok
+        return count
     }
 }

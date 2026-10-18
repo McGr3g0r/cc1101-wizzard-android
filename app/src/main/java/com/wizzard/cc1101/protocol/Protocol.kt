@@ -119,10 +119,63 @@ object AnalyzerRegistry {
 
     fun all(): List<ProtocolAnalyzer> = analyzers.toList()
 
-    /** Run every analyzer; return matches sorted best-first. */
-    fun analyze(packet: CapturedPacket): List<AnalysisResult> =
-        analyzers.mapNotNull { runCatching { it.analyze(packet) }.getOrNull() }
-            .sortedByDescending { it.score }
+    /**
+     * Run every analyzer and return the matches, best-first.
+     *
+     * A captured OOK buffer rarely holds exactly one frame starting at index 0: it
+     * opens with a glitch or an inter-frame gap, may start mid-preamble, and often
+     * holds several repeats. So rather than trust each decoder to find the frame,
+     * the registry sweeps the buffer for every analyzer: it splits the pulse-train
+     * on large inter-frame gaps into segments (each beginning at a frame boundary)
+     * and runs the analyzers on the whole buffer AND on each segment, keeping the
+     * best score per analyzer. Decoders that already scan internally (EV1527, HCS)
+     * are unaffected; the ones that decode from the start (PT2240, Somfy, DB200, …)
+     * now see clean, frame-aligned segments. FSK packets are passed through once.
+     */
+    fun analyze(packet: CapturedPacket): List<AnalysisResult> {
+        val candidates = if (packet is CapturedPacket.Ook) ookCandidates(packet) else listOf(packet)
+        val byId = LinkedHashMap<String, AnalysisResult>()
+        for (cand in candidates) {
+            for (a in analyzers) {
+                val r = runCatching { a.analyze(cand) }.getOrNull() ?: continue
+                val cur = byId[r.analyzerId]
+                if (cur == null || r.score > cur.score) byId[r.analyzerId] = r
+            }
+        }
+        return byId.values.sortedByDescending { it.score }
+    }
+
+    /**
+     * The whole buffer plus each gap-delimited segment of it. Segments start right
+     * after a LOW longer than the inter-frame threshold (max of 6 ms and 10·Te, so
+     * a protocol's own header/sync gaps are kept intact while true frame gaps and
+     * the trailing guard split). Only added when the buffer actually splits.
+     */
+    private fun ookCandidates(p: CapturedPacket.Ook): List<CapturedPacket> {
+        val us = p.us
+        val out = ArrayList<CapturedPacket>()
+        out.add(p)
+        val base = OokDecoding.baseUnitUs(us).coerceAtLeast(1)
+        val gap = maxOf(6000, base * 10)
+        val segs = ArrayList<IntArray>()
+        var start = 0
+        var split = false
+        for (i in us.indices) {
+            if (us[i] >= gap) {
+                // Keep the terminating gap IN the segment: some decoders (e.g. Somfy)
+                // need the inter-frame gap as the last bit's terminator, so a segment
+                // must look like a standalone single-frame capture.
+                if (i > start) segs.add(us.copyOfRange(start, i + 1))
+                start = i + 1
+                split = true
+            }
+        }
+        // final run with no terminating gap: append a synthetic one so it, too,
+        // reads like a clean capture.
+        if (start < us.size) segs.add(us.copyOfRange(start, us.size) + intArrayOf(maxOf(16000, gap)))
+        if (split) for (s in segs) if (s.size >= 8) out.add(p.copy(us = s))
+        return out
+    }
 
     fun best(packet: CapturedPacket): AnalysisResult? = analyze(packet).firstOrNull()
 }

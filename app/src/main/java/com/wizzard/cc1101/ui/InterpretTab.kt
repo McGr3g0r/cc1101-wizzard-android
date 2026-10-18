@@ -194,10 +194,18 @@ private fun SavedPackets(vm: AppViewModel) {
     val exportTree = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) vm.exportTo(uri)
     }
-    SectionCard(stringResource(R.string.ip_saved_packets)) {
+    CollapsibleSectionCard(
+        title = stringResource(R.string.ip_saved_packets),
+        expanded = vm.savedPacketsExpanded,
+        onToggle = { vm.savedPacketsExpanded = !vm.savedPacketsExpanded },
+        collapsedSummary = {
+            Text("${vm.savedPackets.size}", fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+    ) {
         if (vm.savedPackets.isEmpty()) {
             Text(stringResource(R.string.ip_no_saved), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return@SectionCard
+            return@CollapsibleSectionCard
         }
         Text(stringResource(R.string.ip_export_hint), fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))

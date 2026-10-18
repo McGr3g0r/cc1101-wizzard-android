@@ -79,7 +79,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- TX-tab state -----------------------------------------------------
     var txSignal by mutableStateOf<TxSignal?>(null); private set
-    var txRepeat by mutableStateOf(1); private set
+    // A real sub-GHz remote sends the same frame several times while the button is
+    // held, and many receivers (HCS200/KeeLoq especially) only act after a few
+    // consecutive identical frames. A single re-encoded frame is bit-exact but gets
+    // ignored, while a raw replay works because the captured buffer already holds
+    // several repeats — so default to a short burst.
+    var txRepeat by mutableStateOf(5); private set
     var txFreqHz by mutableStateOf(433_920_000L); private set
     var txError by mutableStateOf<String?>(null); private set
 
@@ -251,6 +256,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * the composable) so it survives switching tabs away and back.
      */
     var connExpanded by mutableStateOf(true)
+
+    // Collapse state for the growing file/packet lists (Protocol + TX tabs).
+    var savedPacketsExpanded by mutableStateOf(true)
+    var txSourceExpanded by mutableStateOf(true)
+
+    // OOK TX method: false = GDO0 bit-bang (`pulses play`), true = hardware FIFO
+    // (`pulses playfifo`, quantised to the frame's averaged Te).
+    var ookTxFifo by mutableStateOf(prefs.ookTxFifo); private set
+    fun updateOokTxFifo(on: Boolean) { ookTxFifo = on; prefs.ookTxFifo = on }
+
+    /**
+     * FIFO oversampling factor (1..32): the quantum is unit = Te / factor, so each
+     * pulse is quantised to a finer grid, cutting pulse-timing distortion on jittery
+     * (raw) captures at the cost of more FIFO bytes. 1 = coarsest (unit = Te). Only
+     * used when [ookTxFifo] is on.
+     */
+    var ookTxFifoFactor by mutableStateOf(prefs.ookTxFifoFactor); private set
+    fun updateOokTxFifoFactor(n: Int) {
+        ookTxFifoFactor = n.coerceIn(1, 32); prefs.ookTxFifoFactor = ookTxFifoFactor
+    }
+
+    /**
+     * FIFO quantum for [us] at the current oversampling factor: unit = round(Te /
+     * factor), coarsened just enough that the packed bitstream still fits the
+     * firmware's 2048-byte FIFO scratch (16384 bits; a 16000-bit margin is kept).
+     */
+    private fun fifoUnitUs(us: IntArray): Int {
+        val base = com.wizzard.cc1101.protocol.OokDecoding.baseUnitUs(us).coerceAtLeast(1)
+        var unit = ((base + ookTxFifoFactor / 2) / ookTxFifoFactor).coerceAtLeast(1)
+        fun bits(u: Int): Int = us.sumOf { maxOf(1, (it + u / 2) / u) }
+        while (unit < base && bits(unit) > 16000) unit++
+        return unit
+    }
 
     private val MAX_LOG = 2000
 
@@ -510,7 +548,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun transmit(frame: TxFrame) {
         val n = txRepeat.coerceIn(1, 100)
         when (frame) {
-            is TxFrame.OokPulses -> fw.sendPulses(selectedIface, frame.us, n, txGapMs.toLong() * 1000L)
+            is TxFrame.OokPulses -> {
+                val gap = txGapMs.toLong() * 1000L
+                if (ookTxFifo) {
+                    // Quantise to Te/factor and clock it out of the FIFO.
+                    val unit = fifoUnitUs(frame.us)
+                    fw.sendPulsesFifo(selectedIface, frame.us, unit, n, gap)
+                } else {
+                    fw.sendPulses(selectedIface, frame.us, n, gap)
+                }
+            }
             is TxFrame.FskHex -> {
                 for (i in 0 until n) {
                     fw.sendHex(selectedIface, frame.hex)

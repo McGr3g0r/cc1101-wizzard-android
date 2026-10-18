@@ -162,11 +162,61 @@ object OokDecoding {
      */
     fun dominantBase(us: IntArray): Int = dominantBaseBand(us, 160, 500, estimateTiming(us).shortUs)
 
-    /** Dominant pulse width within [lo,hi]; fallback if none. */
+    /**
+     * Robust base-unit ("short"/Te) pulse time within [lo,hi]; [fallback] if the
+     * band is empty.
+     *
+     * Seeds from the lower part of the in-band pulses (the short cluster), then
+     * returns the median of the pulses within ±35 % of that seed. This locks onto
+     * the base unit even when a harmonic (2·Te, 3·Te) also lands inside the band,
+     * and is immune to per-pulse jitter.
+     *
+     * The previous version took the most frequent *exact* microsecond value. On
+     * real RF no two pulses measure the same integer, so almost every count was 1
+     * and the "mode" collapsed to an essentially arbitrary value — e.g. on one
+     * capture of an HCS remote it returned 250 and on another 417 for the same
+     * ~383 µs Te, so an HCS frame re-encoded from it played ~35 % too fast and a
+     * strict receiver rejected it (while a raw replay of the exact pulses worked).
+     */
     fun dominantBaseBand(us: IntArray, lo: Int, hi: Int, fallback: Int): Int {
-        val counts = HashMap<Int, Int>()
-        for (v in us) if (v in lo..hi) counts[v] = (counts[v] ?: 0) + 1
-        return counts.maxByOrNull { it.value }?.key ?: fallback
+        val inb = us.filter { it in lo..hi }.sorted()
+        if (inb.isEmpty()) return fallback
+        // Split the sorted in-band pulses into clusters at >40 % jumps between
+        // consecutive values. A PWM/KeeLoq frame's short (Te) and long (2·Te)
+        // pulses are ~2× apart, so they land in separate clusters while jitter
+        // within each stays together. The base unit is the SHORT pulses, which
+        // are always the most numerous (every bit has one short-side plus the
+        // preamble), so the most-populous cluster is Te; ties fall to the
+        // lower-valued cluster (the base unit, never a 2·/3· harmonic). A few
+        // stray noise pulses can't outvote a real frame's short run.
+        val clusters = ArrayList<MutableList<Int>>()
+        var cur = ArrayList<Int>()
+        for (v in inb) {
+            if (cur.isNotEmpty() && v > cur.last() * 1.4) { clusters.add(cur); cur = ArrayList() }
+            cur.add(v)
+        }
+        if (cur.isNotEmpty()) clusters.add(cur)
+        var best = clusters[0]                       // lowest cluster; replaced only on strictly larger
+        for (c in clusters) if (c.size > best.size) best = c
+        return medianOf(best)
+    }
+
+    /**
+     * Robust base unit ("averaged Te") of an OOK frame, for the hardware FIFO
+     * transmit quantum (`pulses playfifo <unitUs>`). Clusters the short pulses
+     * across the whole frame (ignoring header/guard and the 2·Te harmonic), so a
+     * frame rebuilt from a decode — whose pulses are exact multiples of Te —
+     * yields exactly Te, and a raw capture yields the Te its jitter averages to.
+     */
+    fun baseUnitUs(us: IntArray): Int =
+        dominantBaseBand(us, 100, 2000, estimateTiming(us).shortUs.coerceAtLeast(1))
+
+    /** Median of a non-empty int list (rounds .5 up); 0 for an empty list. */
+    private fun medianOf(xs: List<Int>): Int {
+        if (xs.isEmpty()) return 0
+        val s = xs.sorted()
+        val m = s.size / 2
+        return if (s.size % 2 == 1) s[m] else (s[m - 1] + s[m] + 1) / 2
     }
 
     /** Reverse the bit order of a byte (LSB<->MSB), like the v1 firmware's reverse8. */

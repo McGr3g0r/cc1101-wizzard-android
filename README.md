@@ -161,6 +161,22 @@ usual. Turn coalescing off to analyse each capture on its own (the pre-coalescin
 behaviour). Synthetic signals (a loaded `.sub` or a composed protocol) are never
 grouped — they always analyse on their own.
 
+### OOK transmit method
+
+Settings → *OOK transmit* chooses how re-generated OOK is keyed out:
+
+- **GDO0 bit-bang** (`pulses play`, default) — the MCU toggles GDO0 and replays the
+  exact captured/encoded microseconds.
+- **Hardware FIFO** (`pulses playfifo`, firmware build 12+) — each pulse is quantised
+  to `round(duration / unitUs)` bits and streamed through the TX FIFO, clocked by the
+  radio's own bit-rate generator (no MCU busy-wait jitter). The app picks
+  `unitUs` = the frame's averaged Te (robust short-pulse cluster), so a frame rebuilt
+  from a decode — whose pulses are exact multiples of Te — reproduces losslessly, and
+  a raw capture has its per-pulse jitter snapped onto the Te grid. The FIFO clocks
+  bits at the radio's data rate; firmware build 12a+ derives that from `unitUs`
+  (DRATE = round(1e6/unitUs), clamped) and restores the profile's rate after the
+  burst, so the app passes only `unitUs` and does not touch `drate`.
+
 ### GPS
 
 Enabling the toggle in Settings requests location permission. On save, the app
@@ -189,7 +205,8 @@ transmitted.
 | Profiles | `profile list|show|new|add|del|apply` |
 | Monitor start/stop | `monitor start <if> <profile> json [minUs] [maxGapUs] [rssiGate]` / `monitor stop` |
 | Transmit (FSK) | `radio <if> send <hex>` |
-| Transmit (OOK) | `radio <if> pulses flush` → `pulses add …` → `pulses play 0 n [repeat] [gapUs]` |
+| Transmit (OOK), GDO0 bit-bang | `radio <if> pulses flush` → `pulses add …` → `pulses play 0 n [repeat] [gapUs]` |
+| Transmit (OOK), hardware FIFO | `pulses flush` → `pulses add …` → `pulses playfifo 0 n <unitUs> [repeat] [gapUs]` (firmware derives/restores DRATE from `unitUs`) |
 
 Every transmitted line respects the firmware CLI limits: command buffer
 `CMD_MAX_BUFFER_LEN = 256` (line < 255 chars) and parser `PARSER_MAX_PARAMS = 64`
