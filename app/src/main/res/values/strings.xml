@@ -195,4 +195,23 @@
     <string name="about_email">e-mail: mcgregor@blackmesaeast.com.pl</string>
     <string name="about_copyright">(c) 2026</string>
     <string name="ok">OK</string>
+    <string name="aprs_title">APRS receive</string>
+    <string name="aprs_desc">Decode APRS (AX.25 / Bell-202 AFSK, 1200 baud) on the 70 cm band. AFSK uses the firmware direct-mode capture; classic FSK uses packet mode. Stop the main monitor first.</string>
+    <string name="aprs_frequency">Frequency (presets)</string>
+    <string name="aprs_manual_mhz">Manual MHz</string>
+    <string name="aprs_set">Set</string>
+    <string name="aprs_current_freq">Using %.4f MHz</string>
+    <string name="aprs_mode">Demodulation</string>
+    <string name="aprs_afsk">AFSK (direct)</string>
+    <string name="aprs_fsk">FSK (packet)</string>
+    <string name="aprs_start">Start</string>
+    <string name="aprs_stop">Stop</string>
+    <string name="aprs_main_running">Main monitor is running — stop it first.</string>
+    <string name="aprs_count">%d packet(s)</string>
+    <string name="aprs_none">No APRS packets decoded yet.</string>
+    <string name="aprs_export">Export to file</string>
+    <string name="aprs_radio_tuning">Radio tuning (seeded per mode)</string>
+    <string name="aprs_drate">Data rate</string>
+    <string name="aprs_rxbw">RX bandwidth</string>
+    <string name="aprs_dev">Deviation</string>
 </resources>

@@ -23,6 +23,13 @@ class Ev1527Analyzer : ProtocolAnalyzer {
         if (packet !is CapturedPacket.Ook) return null
         val t = OokDecoding.estimateTiming(packet.us)
         if (t.shortUs == 0) return null
+        // Distinguish from PT2240: PT2240 opens with a leading preamble (one short
+        // HIGH + a ~7-8 tick gap), EV1527/PT2262 does not (it has only a trailing
+        // long sync). If that leading preamble is present, defer to PT2240.
+        val us = packet.us
+        if (us.size >= 2 && OokDecoding.ticks(us[0], t.shortUs) == 1 &&
+            OokDecoding.ticks(us[1], t.shortUs) in 6..10
+        ) return null
         // EV1527 / PT2262 is a FIXED 24-bit frame. Take the longest clean PWM run
         // and require it to be ~24 bits. The firmware's "gap→frame→gap" grabber
         // trims the trailing sync gap, so we no longer require the frame to be
@@ -207,11 +214,16 @@ class Pt2240Analyzer : ProtocolAnalyzer {
         var errSum = 0.0; var errN = 0; var clean = true
         while (i + 1 < us.size && bits.length < 24) {
             val p0 = t(i); val p1 = t(i + 1)
+            val lastPair = i + 2 >= us.size || t(i + 2) == 0
             when {
+                // PT2240 is strict PWM: '1' = long-high/short-low, '0' = short-high/long-low.
                 p0 == 3 && p1 == 1 -> bits.append('1')
                 p0 == 1 && p1 == 3 -> bits.append('0')
-                p0 == 3 -> { bits.append('1'); clean = false }   // tolerate truncated last bit
-                p0 == 1 -> { bits.append('0'); clean = false }
+                // only the FINAL bit may be truncated (its trailing low is the gap);
+                // a mid-frame pair that isn't (3,1)/(1,3) means this isn't PT2240
+                // (e.g. a fixed-high PPM sensor like Nexus) → reject.
+                lastPair && p0 == 3 -> { bits.append('1'); clean = false }
+                lastPair && p0 == 1 -> { bits.append('0'); clean = false }
                 else -> return null
             }
             errSum += OokDecoding.tickError(us[i], base) + OokDecoding.tickError(us[i + 1], base); errN += 2

@@ -298,6 +298,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val MAX_LOG = 2000
+    private val MAX_APRS = 300
+    private val APRS_PROFILE = "aprs"
 
     init {
         engine.onLog = { line ->
@@ -306,7 +308,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         // packet is already attached to its MONITOR log line; also bucket it so a
         // later tap can analyse the whole transmission, not just this one capture.
-        engine.onMonitor = { pkt -> coalescer.offer(pkt, System.currentTimeMillis()) }
+        engine.onMonitor = { pkt ->
+            if (aprsRunning) onAprsCapture(pkt)
+            else coalescer.offer(pkt, System.currentTimeMillis())
+        }
         engine.onConnection = { state, dev ->
             conn = state
             connectedName = dev?.let { it.productName ?: it.deviceName }
@@ -466,6 +471,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- monitor ----------------------------------------------------------
 
     fun startMonitor(profile: String) = scope {
+        if (aprsRunning) { engine.log(LogKind.ERROR, "APRS monitor is running — stop it first"); return@scope }
         coalescer.reset()   // fresh session: don't group across start/stop
         val res = fw.monitorStart(selectedIface, profile, json = true,
             minUs = captureMinUs, maxGapUs = captureGapUs, rssiGate = captureRssiGate)
@@ -477,6 +483,115 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         fw.monitorStop()
         monitorRunning = false
         engine.blockWhileMonitor = false
+    }
+
+    // ===================== APRS (soft TNC) ==============================
+    /** One decoded APRS packet with the host wall-clock time it arrived. */
+    data class AprsEntry(val timeMs: Long, val packet: com.wizzard.cc1101.protocol.AprsCodec.Packet)
+
+    val aprsPackets: SnapshotStateList<AprsEntry> = mutableStateListOf()
+
+    /** Common 70 cm APRS frequencies (Hz); the user can also type one in. */
+    val aprsPresets: List<Pair<String, Long>> = listOf(
+        "432.500 MHz" to 432_500_000L,
+        "433.775 MHz" to 433_775_000L,
+        "433.800 MHz" to 433_800_000L,
+        "434.000 MHz" to 434_000_000L,
+        "434.800 MHz" to 434_800_000L,
+    )
+    var aprsFreqHz by mutableStateOf(433_800_000L); private set
+    fun updateAprsFreq(hz: Long) { aprsFreqHz = hz.coerceIn(300_000_000L, 928_000_000L) }
+
+    /** true = AFSK (Bell-202) via async `direct` capture; false = classic FSK packet mode. */
+    var aprsAfsk by mutableStateOf(true); private set
+    fun updateAprsAfsk(on: Boolean) { aprsAfsk = on; applyAprsModeDefaults() }
+
+    // Radio tuning for the APRS profile (editable; seeded per mode). AFSK needs a
+    // wider path so the chip's frequency slicer passes the Bell-202 tones; classic
+    // FSK packet mode uses the narrow 1200-baud config. Starting points to verify
+    // against a real on-air signal.
+    var aprsDrate by mutableStateOf(4800); private set
+    var aprsRxbw by mutableStateOf(135000); private set
+    var aprsDev by mutableStateOf(5000); private set
+    fun updateAprsDrate(v: Int) { aprsDrate = v.coerceIn(100, 500000) }
+    fun updateAprsRxbw(v: Int) { aprsRxbw = v.coerceIn(50000, 812000) }
+    fun updateAprsDev(v: Int) { aprsDev = v.coerceIn(1000, 380000) }
+    private fun applyAprsModeDefaults() {
+        if (aprsAfsk) { aprsDrate = 4800; aprsRxbw = 135000; aprsDev = 5000 }
+        else { aprsDrate = 1200; aprsRxbw = 58000; aprsDev = 3000 }
+    }
+
+    var aprsRunning by mutableStateOf(false); private set
+
+    /** Collapse the APRS parameter card so the received-packet list can be browsed. */
+    var aprsParamsExpanded by mutableStateOf(true)
+
+    fun startAprs() = scope {
+        if (monitorRunning) { engine.log(LogKind.ERROR, "Main monitor is running — stop it first"); return@scope }
+        // ensure a 2-FSK profile at the selected frequency; AFSK is demodulated on
+        // the host from the direct pulse-train, so the radio only needs to slice.
+        val lines = listOf(
+            "set mod 2fsk", "set freq $aprsFreqHz", "set drate $aprsDrate",
+            "set rxbw $aprsRxbw", "set dev $aprsDev", "rx",
+        )
+        if (!fw.profileWrite(APRS_PROFILE, lines)) { engine.log(LogKind.ERROR, "APRS profile write failed"); return@scope }
+        aprsPackets.clear()
+        val res = fw.monitorStart(
+            selectedIface, APRS_PROFILE, json = true,
+            minUs = 50, maxGapUs = 8000, rssiGate = captureRssiGate, direct = aprsAfsk,
+        )
+        aprsRunning = res.ok
+        engine.blockWhileMonitor = res.ok
+        if (res.ok) engine.log(LogKind.INFO, "APRS monitor started (${if (aprsAfsk) "AFSK/direct" else "FSK"}) @ ${aprsFreqHz / 1_000_000.0} MHz")
+    }
+
+    fun stopAprs() = scope {
+        fw.monitorStop()
+        aprsRunning = false
+        engine.blockWhileMonitor = false
+    }
+
+    /** Decode a capture off the serial thread, then publish packets on the main thread. */
+    private fun onAprsCapture(pkt: CapturedPacket) {
+        val decoded = when (pkt) {
+            is CapturedPacket.Ook -> com.wizzard.cc1101.protocol.AprsCodec.decodeFromPulses(pkt.us)
+            is CapturedPacket.Fsk -> com.wizzard.cc1101.protocol.AprsCodec.decodeFromBytes(pkt.bytes)
+        }
+        if (decoded.isEmpty()) return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            for (p in decoded) {
+                aprsPackets.add(AprsEntry(now, p))
+                if (aprsPackets.size > MAX_APRS) aprsPackets.removeAt(0)
+            }
+        }
+    }
+
+    /** Export one decoded APRS packet to a text file in the chosen directory. */
+    fun exportAprsPacket(entry: AprsEntry, treeUri: android.net.Uri) = scope {
+        val app = getApplication<Application>()
+        val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(app, treeUri)
+        if (tree == null || !tree.canWrite()) { engine.log(LogKind.ERROR, str(R.string.vm_export_failed)); return@scope }
+        val tsFile = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date(entry.timeMs))
+        val ts = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(entry.timeMs))
+        val p = entry.packet
+        val hex = com.wizzard.cc1101.cli.MonitorParser.bytesToHex(p.frame)
+        val text = buildString {
+            appendLine("[$ts]")
+            appendLine(p.tnc2())
+            appendLine()
+            appendLine("source : ${p.source}")
+            appendLine("dest   : ${p.dest}")
+            appendLine("path   : ${p.path.joinToString(",")}")
+            appendLine("info   : ${p.info}")
+            appendLine("frame  : $hex")
+        }
+        runCatching {
+            tree.createFile("text/plain", "aprs_$tsFile.txt")?.let { doc ->
+                app.contentResolver.openOutputStream(doc.uri)?.use { it.write(text.toByteArray()) }
+            } ?: throw java.io.IOException("createFile")
+            engine.log(LogKind.INFO, str(R.string.vm_export_ok, "aprs_$tsFile"))
+        }.onFailure { engine.log(LogKind.ERROR, str(R.string.vm_export_failed)) }
     }
 
     // ---- interpretation ---------------------------------------------------

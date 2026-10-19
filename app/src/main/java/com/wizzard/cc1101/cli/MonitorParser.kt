@@ -52,7 +52,10 @@ object MonitorParser {
         val mod = o.optString("mod")
         val rssi = o.optInt("rssi")
         val lqi = o.optInt("lqi")
-        if (mod == "ook") {
+        // A "us" array means a pulse-train: OOK, or any modulation captured in the
+        // firmware's `direct` async-GDO0 mode (e.g. 2-FSK carrying AFSK). Packet mode
+        // emits "hex" instead.
+        if (o.has("us")) {
             val arr = o.optJSONArray("us")
             val us = IntArray(arr?.length() ?: 0) { arr!!.getInt(it) }
             CapturedPacket.Ook(iface, ts, rssi, lqi, us, t)

@@ -39,18 +39,28 @@ internal fun ppmEncode(
     return out.toIntArray()
 }
 
-/** Decode a PPM train: classify each LOW as 0/1; a LOW well above one-gap ends it. */
-internal fun ppmDecode(us: IntArray, zeroLowUs: Int, oneLowUs: Int): String {
-    val sb = StringBuilder()
+/**
+ * Split a PPM train into frames on the sync gaps and decode each: classify every
+ * LOW as 0/1, and a LOW well above the one-gap ends the current frame. Returns one
+ * bit-string per frame, so a capture that starts mid-burst or holds several repeats
+ * still yields a complete frame (the caller picks the valid one).
+ */
+internal fun ppmFrames(us: IntArray, zeroLowUs: Int, oneLowUs: Int): List<String> {
     val boundary = oneLowUs + (oneLowUs - zeroLowUs)    // clearly longer than a one-bit
+    val frames = ArrayList<String>()
+    val sb = StringBuilder()
     var i = 0
     while (i + 1 < us.size) {
         val lo = us[i + 1]
-        if (lo > boundary) { if (sb.isNotEmpty()) break else { i += 2; continue } }
+        if (lo > boundary) {                            // sync / inter-frame gap
+            if (sb.isNotEmpty()) { frames.add(sb.toString()); sb.setLength(0) }
+            i += 2; continue
+        }
         sb.append(if (kotlin.math.abs(lo - oneLowUs) < kotlin.math.abs(lo - zeroLowUs)) '1' else '0')
         i += 2
     }
-    return sb.toString()
+    if (sb.isNotEmpty()) frames.add(sb.toString())
+    return frames
 }
 
 /** Sign-extend an n-bit value. */
@@ -115,18 +125,24 @@ class NexusAnalyzer : ProtocolAnalyzer {
 
     override fun analyze(packet: CapturedPacket): AnalysisResult? {
         if (packet !is CapturedPacket.Ook) return null
-        val bits = ppmDecode(packet.us, ZERO, ONE)
-        if (bits.length !in 35..37) return null
-        val b = bits.take(36).padEnd(36, '0')
-        if (b.substring(24, 28) != "1111") return null          // constant nibble = signature
+        // scan every repeat in the burst; take the first that is exactly 36 bits with
+        // the 0xF constant nibble and a sane humidity, so a mid-frame start or a noisy
+        // repeat (common in a real capture) doesn't defeat detection.
+        val us = packet.us
+        val frames = ppmFrames(us, ZERO, ONE) +
+            (if (us.size > 1) ppmFrames(us.copyOfRange(1, us.size), ZERO, ONE) else emptyList())
+        val b = frames.firstOrNull {
+            it.length == 36 && it.substring(24, 28) == "1111" &&
+                OokDecoding.bitsToLong(it.substring(28, 36)).toInt() <= 100
+        } ?: return null
         val sid = OokDecoding.bitsToLong(b.substring(0, 8))
         val battery = b[8] - '0'
         val channel = OokDecoding.bitsToLong(b.substring(10, 12)).toInt() + 1
         val tempTenths = signExtend(OokDecoding.bitsToLong(b.substring(12, 24)).toInt(), 12)
         val humidity = OokDecoding.bitsToLong(b.substring(28, 36)).toInt()
-        if (humidity > 100) return null
 
-        val score = Scoring.score(0.80f, if (b.length == 36) 0.9 else 0.5)
+        // strong signature already validated (0xF nibble + exactly 36 PPM bits + hum<=100)
+        val score = Scoring.score(0.85f, 0.9)
         return AnalysisResult(
             id, "Nexus (weather 36-bit)", score,
             "id=0x%02X ch%d %s°C %d%% bat=%d".format(sid, channel, tempStr(tempTenths), humidity, battery),

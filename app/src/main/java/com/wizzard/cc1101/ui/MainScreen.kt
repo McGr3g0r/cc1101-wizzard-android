@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.wizzard.cc1101.AppViewModel
 import com.wizzard.cc1101.R
 
-private val TAB_TITLES = listOf("Monitor", "Protocol", "TX", "cc1101")
+private val TAB_TITLES = listOf("Monitor", "Protocol", "TX", "cc1101", "APRS")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,6 +106,7 @@ fun MainScreen(vm: AppViewModel) {
                 1 -> InterpretTab(vm)
                 2 -> TxTab(vm)
                 3 -> Cc1101Tab(vm)
+                4 -> AprsTab(vm)
             }
         }
     }

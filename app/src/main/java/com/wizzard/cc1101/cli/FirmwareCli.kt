@@ -181,13 +181,16 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
      */
     suspend fun monitorStart(
         iface: String, profile: String, json: Boolean = true,
-        minUs: Int = 0, maxGapUs: Int = 0, rssiGate: Int = 0,
+        minUs: Int = 0, maxGapUs: Int = 0, rssiGate: Int = 0, direct: Boolean = false,
     ): CliEngine.CmdResult {
         val fmt = if (json) "json" else "hex"
         val window = if (minUs > 0 && maxGapUs > 0) " $minUs $maxGapUs" else ""
         // rssiGate only makes sense once the window args are present (it's the 8th token)
         val gate = if (window.isNotEmpty() && rssiGate < 0) " $rssiGate" else ""
-        return engine.send("monitor start $iface $profile $fmt$window$gate", timeoutMs = 5000)
+        // 'direct' (firmware build 2026-10+): async GDO0 pulse-timing capture for a
+        // non-OOK modulation (e.g. 2-FSK carrying AFSK), recognised as the last token.
+        val dir = if (direct) " direct" else ""
+        return engine.send("monitor start $iface $profile $fmt$window$gate$dir", timeoutMs = 5000)
     }
 
     suspend fun monitorStop() = engine.send("monitor stop")
