@@ -28,14 +28,23 @@ import com.wizzard.cc1101.cli.TxFrame
 // shared helpers
 // ===========================================================================
 
-/** Pulse-position OOK: a fixed HIGH pulse, then a LOW whose length is the bit. */
+/**
+ * Pulse-position OOK: a fixed HIGH pulse, then a LOW whose length is the bit.
+ *
+ * One frame is emitted as `bits` followed by a single (HIGH, sync LOW) pair, i.e.
+ * the sync gap TERMINATES the frame. This matches what real PPM sensors (Nexus and
+ * clones) send: back-to-back repeats separated by exactly one sync gap. When the
+ * firmware repeats this train (`pulses play ... <repeat>`), consecutive frames are
+ * therefore joined by one sync, never two. A leading sync would produce a
+ * (HIGH, sync, HIGH, sync) pair between repeats, i.e. an empty 0-bit row that
+ * strict receivers reject.
+ */
 internal fun ppmEncode(
     bits: String, highUs: Int, zeroLowUs: Int, oneLowUs: Int, syncLowUs: Int,
 ): IntArray {
-    val out = ArrayList<Int>(bits.length * 2 + 4)
-    out.add(highUs); out.add(syncLowUs)                 // leading sync
+    val out = ArrayList<Int>(bits.length * 2 + 2)
     for (b in bits) { out.add(highUs); out.add(if (b == '1') oneLowUs else zeroLowUs) }
-    out.add(highUs); out.add(syncLowUs)                 // trailing sync / repeat gap
+    out.add(highUs); out.add(syncLowUs)                 // frame terminator / repeat gap
     return out.toIntArray()
 }
 
@@ -69,10 +78,21 @@ internal fun signExtend(v: Int, bits: Int): Int {
     return (v xor m) - m
 }
 
+/**
+ * Parse a temperature field into tenths of a degree. Accepts both '.' and ','
+ * as the decimal separator, so a value typed (or previously formatted) under a
+ * comma-decimal locale such as pl_PL is not silently read as 0.
+ */
 internal fun tempRaw(s: String?): Int =
-    Math.round((s?.toDoubleOrNull() ?: 0.0) * 10.0).toInt()
+    Math.round((s?.trim()?.replace(',', '.')?.toDoubleOrNull() ?: 0.0) * 10.0).toInt()
 
-internal fun tempStr(rawTenths: Int): String = "%.1f".format(rawTenths / 10.0)
+/**
+ * Format tenths of a degree for an editable field. Always uses '.' (Locale.ROOT):
+ * the default-locale "%.1f" yields "23,5" on a Polish phone, which the encoder
+ * used to parse back as 0.0 °C.
+ */
+internal fun tempStr(rawTenths: Int): String =
+    String.format(java.util.Locale.ROOT, "%.1f", rawTenths / 10.0)
 
 /** rtl_433 lfsr_digest8_reflect — used by LaCrosse TX141TH-Bv2. */
 internal fun lfsrDigest8Reflect(bytes: IntArray, n: Int, gen: Int, key0: Int): Int {
@@ -158,13 +178,19 @@ internal fun nexusEncode(f: List<ProtoField>): TxFrame? {
     val sid = fi(f, "id") ?: return null
     val ch = ((fd(f, "channel") ?: 1).coerceIn(1, 3)) - 1
     val bat = (fd(f, "battery") ?: 1).coerceIn(0, 1)
-    val temp = ftemp(f, "temp") and 0xFFF
+    val temp = ftemp(f, "temp").coerceIn(-2048, 2047) and 0xFFF
     val hum = (fd(f, "humidity") ?: 0).coerceIn(0, 100)
+    // Nexus timing is Te-based: HIGH = Te, zero gap = 2*Te, one gap = 4*Te, sync = 8*Te
+    // (Te = 500 us nominal; a real capture measured ~490 / 950 / 1935 / 3880 us).
+    val te = (fd(f, "te") ?: NexusAnalyzer.HIGH_ZERO_ONE_TE).coerceIn(100, 2000)
     val bits = OokDecoding.longToBits(sid and 0xFF, 8) +
         bat.toString() + "0" + OokDecoding.longToBits(ch.toLong(), 2) +
         OokDecoding.longToBits(temp.toLong(), 12) + "1111" +
         OokDecoding.longToBits(hum.toLong(), 8)
-    return TxFrame.OokPulses(ppmEncode(bits, NexusAnalyzer.HIGH_ZERO_ONE_TE, NexusAnalyzer.ZERO, NexusAnalyzer.ONE, 4000))
+    // One frame = 36 PPM bits + terminating sync. Receivers (and rtl_433) need several
+    // identical consecutive frames, so transmit with a TX repeat of at least 3 (the
+    // real sensor sends ~10-12 per reading) and an inter-frame gap of 0.
+    return TxFrame.OokPulses(ppmEncode(bits, te, 2 * te, 4 * te, 8 * te))
 }
 
 // ===========================================================================

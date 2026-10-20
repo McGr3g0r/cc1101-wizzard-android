@@ -58,6 +58,20 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_OOK_TX_FIFO_FACTOR, 8)
         set(v) { sp.edit().putInt(KEY_OOK_TX_FIFO_FACTOR, v.coerceIn(1, 32)).apply() }
 
+    /**
+     * Apply the firmware `fifocal` DRATE correction before each FIFO transmit. Some
+     * CC1101 clones clock the FIFO at ~2× the configured DRATE, so the on-air frame
+     * plays too fast; fifocal (permille, 1000 = 1.0×) scales it back. Enable + set
+     * ~500 on a 2× board (measure with an SDR).
+     */
+    var ookTxFifocalEnabled: Boolean
+        get() = sp.getBoolean(KEY_OOK_TX_FIFOCAL_ON, false)
+        set(v) { sp.edit().putBoolean(KEY_OOK_TX_FIFOCAL_ON, v).apply() }
+
+    var ookTxFifocalValue: Int
+        get() = sp.getInt(KEY_OOK_TX_FIFOCAL_VAL, 500)
+        set(v) { sp.edit().putInt(KEY_OOK_TX_FIFOCAL_VAL, v.coerceIn(100, 10000)).apply() }
+
     /** OOK monitor capture: minimum pulse length [us] (runts shorter are trimmed). */
     var captureMinUs: Int
         get() = sp.getInt(KEY_CAP_MIN, 100)
@@ -113,6 +127,8 @@ class Prefs(context: Context) {
         private const val KEY_AUTORECONNECT = "auto_reconnect"
         private const val KEY_OOK_TX_FIFO = "ook_tx_fifo"
         private const val KEY_OOK_TX_FIFO_FACTOR = "ook_tx_fifo_factor"
+        private const val KEY_OOK_TX_FIFOCAL_ON = "ook_tx_fifocal_on"
+        private const val KEY_OOK_TX_FIFOCAL_VAL = "ook_tx_fifocal_val"
         private const val KEY_CAP_MIN = "capture_min_us"
         private const val KEY_CAP_GAP = "capture_gap_us"
         private const val KEY_CAP_RSSI = "capture_rssi_gate"

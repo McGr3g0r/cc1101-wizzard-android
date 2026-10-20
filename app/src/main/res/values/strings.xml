@@ -214,4 +214,7 @@
     <string name="aprs_drate">Data rate</string>
     <string name="aprs_rxbw">RX bandwidth</string>
     <string name="aprs_dev">Deviation</string>
+    <string name="cfg_fifocal_title">Apply FIFO calibration (fifocal)</string>
+    <string name="cfg_fifocal_hint">Scale the FIFO data rate (permille, 1000 = 1.0x). Set ~500 if your board clocks the FIFO ~2x too fast. Applied before each FIFO transmit.</string>
+    <string name="cfg_fifocal_value">fifocal value</string>
 </resources>

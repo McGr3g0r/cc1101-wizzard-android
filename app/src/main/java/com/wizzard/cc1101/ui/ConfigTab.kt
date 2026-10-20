@@ -178,6 +178,26 @@ fun ConfigTab(vm: AppViewModel) {
                     onChange = { vm.updateOokTxFifoFactor(it) },
                     step = 1, max = 32, unit = "×",
                 )
+                // per-board FIFO DRATE correction (fifocal)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.cfg_fifocal_title),
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.cfg_fifocal_hint), fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = vm.ookTxFifocalEnabled, onCheckedChange = { vm.updateOokTxFifocalEnabled(it) })
+                }
+                if (vm.ookTxFifocalEnabled) {
+                    MsStepper(
+                        label = stringResource(R.string.cfg_fifocal_value),
+                        sub = null,
+                        valueMs = vm.ookTxFifocalValue,
+                        onChange = { vm.updateOokTxFifocalValue(it) },
+                        step = 50, max = 10000, unit = "‰",
+                    )
+                }
             }
         }
 

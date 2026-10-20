@@ -248,8 +248,11 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
      */
     suspend fun sendPulsesFifo(
         iface: String, us: IntArray, unitUs: Int, repeat: Int = 1, gapUs: Long = 0,
+        fifocalPermille: Int? = null,
     ): Boolean {
         if (unitUs < 1) return false
+        // Optional per-board DRATE correction (some clones clock the FIFO ~2x fast).
+        if (fifocalPermille != null && !setParam(iface, "fifocal", fifocalPermille.toString()).ok) return false
         val count = flushAndAdd(iface, us) ?: return false
         val rep = repeat.coerceAtLeast(1)
         val play = "radio $iface pulses playfifo 0 $count $unitUs $rep $gapUs"

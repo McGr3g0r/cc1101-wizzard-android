@@ -273,6 +273,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var ookTxFifo by mutableStateOf(prefs.ookTxFifo); private set
     fun updateOokTxFifo(on: Boolean) { ookTxFifo = on; prefs.ookTxFifo = on }
 
+    // Optional `fifocal` DRATE correction applied before each FIFO transmit.
+    var ookTxFifocalEnabled by mutableStateOf(prefs.ookTxFifocalEnabled); private set
+    fun updateOokTxFifocalEnabled(on: Boolean) { ookTxFifocalEnabled = on; prefs.ookTxFifocalEnabled = on }
+
+    var ookTxFifocalValue by mutableStateOf(prefs.ookTxFifocalValue); private set
+    fun updateOokTxFifocalValue(v: Int) { ookTxFifocalValue = v.coerceIn(100, 10000); prefs.ookTxFifocalValue = ookTxFifocalValue }
+
     /**
      * FIFO oversampling factor (1..32): the quantum is unit = Te / factor, so each
      * pulse is quantised to a finer grid, cutting pulse-timing distortion on jittery
@@ -675,7 +682,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (ookTxFifo) {
                     // Quantise to Te/factor and clock it out of the FIFO.
                     val unit = fifoUnitUs(frame.us)
-                    fw.sendPulsesFifo(selectedIface, frame.us, unit, n, gap)
+                    val cal = if (ookTxFifocalEnabled) ookTxFifocalValue else null
+                    fw.sendPulsesFifo(selectedIface, frame.us, unit, n, gap, cal)
                 } else {
                     fw.sendPulses(selectedIface, frame.us, n, gap)
                 }

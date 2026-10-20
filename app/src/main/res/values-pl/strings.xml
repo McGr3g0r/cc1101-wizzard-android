@@ -210,4 +210,7 @@
     <string name="aprs_drate">Data rate</string>
     <string name="aprs_rxbw">Pasmo RX (rxbw)</string>
     <string name="aprs_dev">Dewiacja</string>
+    <string name="cfg_fifocal_title">Stosuj kalibracje FIFO (fifocal)</string>
+    <string name="cfg_fifocal_hint">Skaluje data rate FIFO (promile, 1000 = 1.0x). Ustaw ~500, gdy plytka taktuje FIFO ~2x za szybko. Wysylane przed kazdym nadaniem FIFO.</string>
+    <string name="cfg_fifocal_value">Wartosc fifocal</string>
 </resources>
