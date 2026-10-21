@@ -58,8 +58,8 @@ device/per-app locale automatically.
 
 ## Tabs
 
-Tabs: **Monitor**, **Protocol**, **TX**, **cc1101**. Settings live behind the
-gear icon in the top bar (a separate screen, not a tab).
+Tabs: **Monitor**, **Protocol**, **TX**, **cc1101**, **APRS**. Settings live
+behind the gear icon in the top bar (a separate screen, not a tab).
 
 1. **Monitor** — a **collapsible** connection panel (device identity from `info`,
    *Connect / Disconnect / Verify device*); collapse it with the chevron to give
@@ -97,6 +97,12 @@ gear icon in the top bar (a separate screen, not a tab).
 4. **cc1101** — modulation (2fsk/gfsk/ook/4fsk/msk), quick and generic radio
    parameter editing (`radio <iface> set …`), full radio state, and a profile
    editor (select / new / save / delete / apply).
+5. **APRS** *(experimental)* — a software TNC: Bell-202 AFSK (1200 Hz / 2200 Hz,
+   1200 baud) → NRZI → HDLC → AX.25 → APRS text, with every frame validated by its
+   AX.25 FCS. Decodes received packets (from the `direct` AFSK pulse-train, or
+   best-effort from FSK/packet bytes) into the familiar `SRC>DEST,path:info` form,
+   and can compose/transmit a frame. **See the experimental warning below — this
+   path is new and will likely need tuning/fixing against real on-air signals.**
 
 **Settings** (gear icon): GPS tagging of packets, automatic reconnect, colour
 theme (Graphite / Midnight Blue / Deep Purple / Forest / Amber Dark / Light),
@@ -276,8 +282,23 @@ Built-in analyzers:
   the frame is reassembled, then transmitted or saved. The payload is shown as
   captured (encrypted rolling code — not decrypted).
 - **DB200** (OOK, 4-bit PWM).
+- **Weather sensors** (OOK) — **Nexus** (36-bit), **Acurite 609TXC**,
+  **LaCrosse TX141TH**, **Oregon Scientific v2.1**: temperature / humidity /
+  channel / battery, decode + compose/transmit (spoof a reading).
 - **Manchester (base)** — IEEE 802.3 Manchester decoder/encoder for OOK.
 - **Generic OOK / FSK** fallbacks and a heuristic FSK rolling-code splitter.
+
+### APRS *(experimental)*
+
+**APRS is experimental and will almost certainly need further work.** The full
+software-TNC chain — Bell-202 AFSK demod → NRZI → HDLC bit-destuffing → AX.25 →
+APRS text, with FCS validation — is implemented and round-trip tested against its
+own encoder (`AprsCodec`), but it has **not** been proven robust against the
+timing jitter, noise and clock drift of real off-air AFSK captured through the
+CC1101's `direct` mode. Expect to tune the bit-window/tone recovery (and possibly
+the capture parameters) against real signals; decode of weak or off-centre
+packets may fail, and TX is unverified against a hardware TNC/receiver. Treat it
+as a starting point, not a finished decoder.
 
 ## `data/` files
 
