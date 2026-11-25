@@ -58,8 +58,10 @@ device/per-app locale automatically.
 
 ## Tabs
 
-Tabs: **Monitor**, **Protocol**, **TX**, **cc1101**. Settings live behind the
-gear icon in the top bar (a separate screen, not a tab).
+Tabs: **Monitor**, **Protocol**, **TX**, **cc1101**, and three optional tabs
+— **PKT**, **Sweep** and **APRS** — that are hidden by default and switched on
+in Settings (see **Visible tabs** below). Settings live behind the gear icon in
+the top bar (a separate screen, not a tab).
 
 1. **Monitor** — a **collapsible** connection panel (device identity from `info`,
    *Connect / Disconnect / Verify device*); collapse it with the chevron to give
@@ -98,13 +100,44 @@ gear icon in the top bar (a separate screen, not a tab).
    parameter editing (`radio <iface> set …`), full radio state, and a profile
    editor (select / new / save / delete / apply).
 
+Optional tabs (off by default, enable in **Settings → Visible tabs**):
+
+5. **PKT** *(packet mode)* — monitor, receive and transmit CC1101 packet-mode
+   frames (2-FSK / GFSK / 4-FSK / MSK) through the firmware's hardware packet
+   engine. Set this radio's **address** (0–255) and the **address-check** mode
+   (off / address / address + 0x00 broadcast / address + 0x00 + 0xFF), plus CRC,
+   frequency, data rate, RX bandwidth and deviation. RX uses the packet monitor;
+   each received or transmitted frame is listed logger-style (direction, time,
+   address, RSSI, CRC, hex) and tapping one opens a detail dialog (hex + ASCII).
+   A **Clear** button empties the list. Transmit sends the payload through
+   `radio <if> pkt send` / `pkt sendto <addr>` — the chip builds the length,
+   address and CRC, so only the payload is entered (optional destination address
+   uses `sendto`). TX is blocked while any monitor runs.
+6. **Sweep** *(spectrum / waterfall)* — a swept-tuned spectrum analyzer rendered
+   as an SDR-style **waterfall**. The radio hops across the span reading RSSI
+   (`radio <if> sweep …`), one pass per waterfall row; dBm = raw/2 − 138. Pick a
+   range from presets (433 ISM, 315, 868 SRD, 915 ISM) or enter start/stop (MHz)
+   and step (kHz); start and stop must fall in one CC1101 band (300–348, 387–464
+   or 779–928 MHz), step ≥ 1 kHz and ≤ 512 points (validated live). The **RBW**
+   (RX filter bandwidth) is chosen from the CC1101's 16 values or left on Auto.
+   **Save image** renders the current spectrum to a **PNG** (title, range, RBW and
+   a frequency axis) via the system folder picker (SAF). Running a sweep blocks
+   monitoring and transmitting, and vice-versa (one radio).
+7. **APRS** *(experimental)* — receive APRS (AX.25 / Bell-202 AFSK 1200) via the
+   firmware's `direct` mode, with a software demodulator (transition-resync bit
+   clock). The AFSK decoder is validated against a real off-air SDR capture, but
+   the CC1101 `direct` RX path is not yet proven on air and TX is unverified —
+   treat it as experimental.
+
 **Settings** (gear icon): GPS tagging of packets, automatic reconnect, colour
 theme (Graphite / Midnight Blue / Deep Purple / Forest / Amber Dark / Light),
 default inter-frame gap (ms); the **OOK capture window** (min pulse / frame gap)
 and **RSSI gate**; **capture coalescing** (combine consecutive captures + its time
 window); plus USB adapter selection, radio interface (`r0`…), profile management
 and the list of registered analyzers. The capture window, RSSI gate and
-coalescing are described under **Monitor capture** below.
+coalescing are described under **Monitor capture** below. **Visible tabs** —
+toggles for the three optional tabs (**PKT**, **Sweep**, **APRS**), all **off by
+default**; the four core tabs (Monitor, Protocol, TX, cc1101) are always shown.
 
 ## "Right device" verification
 
