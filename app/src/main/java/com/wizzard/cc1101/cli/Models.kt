@@ -59,6 +59,10 @@ sealed interface CapturedPacket {
         val crc: Boolean,
         val bytes: ByteArray,
         override val raw: String,
+        /** Address byte the packet engine reported (addrchk > 0); null when off. */
+        val addr: Int? = null,
+        /** Whether CRC checking was enabled on the chip (crcen); null if unknown. */
+        val crcEn: Boolean? = null,
     ) : CapturedPacket {
         override fun equals(other: Any?): Boolean =
             other is Fsk && raw == other.raw && bytes.contentEquals(other.bytes)
@@ -75,6 +79,34 @@ sealed interface TxFrame {
     }
     /** Packet-mode frame; sent via `radio <iface> send <hex>` in the current modulation. */
     data class FskHex(val hex: String) : TxFrame
+}
+
+/**
+ * One pass of the firmware swept-spectrum analyzer (`radio <if> sweep`) — a
+ * single waterfall row. `rssiRaw[i]` is the raw byte for the point at
+ * `f0Hz + i*dfHz`; convert to dBm with [dbmAt] (dBm = raw/2 − 138, 0.5 dB steps).
+ */
+data class SweepLine(
+    val iface: String,
+    val ts: Long,
+    val f0Hz: Long,
+    val dfHz: Long,
+    val n: Int,
+    val rbwHz: Long,
+    val rssiRaw: IntArray,
+) {
+    fun dbmAt(i: Int): Float = rssiRaw[i] / 2f - 138f
+    val stopHz: Long get() = f0Hz + (n - 1).toLong() * dfHz
+    override fun equals(other: Any?) = other is SweepLine &&
+        ts == other.ts && f0Hz == other.f0Hz && rssiRaw.contentEquals(other.rssiRaw)
+    override fun hashCode() = (ts.hashCode() * 31 + f0Hz.hashCode()) * 31 + rssiRaw.contentHashCode()
+
+    companion object {
+        /** Raw byte → dBm. Range −138 .. −10.5 dBm in 0.5 dB steps. */
+        fun rawToDbm(raw: Int): Float = raw / 2f - 138f
+        const val DBM_MIN = -138f
+        const val DBM_MAX = -10.5f
+    }
 }
 
 /** Connection state for the main-tab indicator. */

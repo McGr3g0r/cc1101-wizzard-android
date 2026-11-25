@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.sp
 import com.wizzard.cc1101.AppViewModel
 import com.wizzard.cc1101.R
 
-private val TAB_TITLES = listOf("Monitor", "Protocol", "TX", "cc1101", "APRS")
+/** One entry in the main tab bar: its title and the screen it shows. */
+private class TabDef(val title: String, val content: @Composable () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +35,20 @@ fun MainScreen(vm: AppViewModel) {
     val context = LocalContext.current
     var showCloseDialog by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+
+    // The four core tabs are always present (fixed indices 0-3, which other code
+    // navigates to directly); PKT and APRS are optional and appended only when
+    // enabled in Settings, so a hidden tab never shifts a core index.
+    val tabs = buildList {
+        add(TabDef("Monitor") { MainTab(vm) })
+        add(TabDef("Protocol") { InterpretTab(vm) })
+        add(TabDef("TX") { TxTab(vm) })
+        add(TabDef("cc1101") { Cc1101Tab(vm) })
+        if (vm.tabPktVisible) add(TabDef("PKT") { PktTab(vm) })
+        if (vm.tabSweepVisible) add(TabDef("Sweep") { SweepTab(vm) })
+        if (vm.tabAprsVisible) add(TabDef("APRS") { AprsTab(vm) })
+    }
+    val tabIndex = vm.selectedTab.coerceIn(0, tabs.lastIndex)
 
     // Back: close the settings screen first; otherwise ask about the monitor.
     BackHandler(enabled = true) {
@@ -82,15 +97,15 @@ fun MainScreen(vm: AppViewModel) {
                 if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (!vm.showSettings) {
                     ScrollableTabRow(
-                        selectedTabIndex = vm.selectedTab,
+                        selectedTabIndex = tabIndex,
                         containerColor = MaterialTheme.colorScheme.background,
                         edgePadding = 8.dp,
                     ) {
-                        TAB_TITLES.forEachIndexed { i, title ->
+                        tabs.forEachIndexed { i, t ->
                             Tab(
-                                selected = vm.selectedTab == i,
+                                selected = tabIndex == i,
                                 onClick = { vm.selectedTab = i },
-                                text = { Text(title, fontSize = 13.sp) },
+                                text = { Text(t.title, fontSize = 13.sp) },
                             )
                         }
                     }
@@ -101,12 +116,8 @@ fun MainScreen(vm: AppViewModel) {
         Box(Modifier.padding(padding).fillMaxSize()) {
             if (vm.showSettings) {
                 ConfigTab(vm)
-            } else when (vm.selectedTab) {
-                0 -> MainTab(vm)
-                1 -> InterpretTab(vm)
-                2 -> TxTab(vm)
-                3 -> Cc1101Tab(vm)
-                4 -> AprsTab(vm)
+            } else {
+                tabs[tabIndex].content()
             }
         }
     }

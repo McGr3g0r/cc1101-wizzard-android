@@ -104,6 +104,39 @@ fun ConfigTab(vm: AppViewModel) {
             )
         }
 
+        // ---- optional tabs (APRS / PKT) ----
+        SectionCard(stringResource(R.string.cfg_tabs_title)) {
+            Text(stringResource(R.string.cfg_tabs_desc), fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.cfg_tabs_pkt), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.cfg_tabs_pkt_desc), fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = vm.tabPktVisible, onCheckedChange = { vm.updateTabPktVisible(it) })
+            }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.cfg_tabs_sweep), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.cfg_tabs_sweep_desc), fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = vm.tabSweepVisible, onCheckedChange = { vm.updateTabSweepVisible(it) })
+            }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.cfg_tabs_aprs), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.cfg_tabs_aprs_desc), fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = vm.tabAprsVisible, onCheckedChange = { vm.updateTabAprsVisible(it) })
+            }
+        }
+
         // ---- OOK monitor capture window ----
         SectionCard(stringResource(R.string.cfg_capture_title)) {
             Text(stringResource(R.string.cfg_capture_desc), fontSize = 11.sp,

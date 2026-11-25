@@ -217,4 +217,84 @@
     <string name="cfg_fifocal_title">Apply FIFO calibration (fifocal)</string>
     <string name="cfg_fifocal_hint">Scale the FIFO data rate (permille, 1000 = 1.0x). Set ~500 if your board clocks the FIFO ~2x too fast. Applied before each FIFO transmit.</string>
     <string name="cfg_fifocal_value">fifocal value</string>
+
+    <!-- optional-tab visibility -->
+    <string name="cfg_tabs_title">Visible tabs</string>
+    <string name="cfg_tabs_desc">Show or hide the optional tabs in the top bar. The core tabs (Monitor, Protocol, TX, cc1101) are always shown.</string>
+    <string name="cfg_tabs_pkt">PKT tab</string>
+    <string name="cfg_tabs_pkt_desc">Packet mode: monitor, receive and transmit 2-FSK/GFSK packets with address filtering.</string>
+    <string name="cfg_tabs_aprs">APRS tab</string>
+    <string name="cfg_tabs_aprs_desc">Experimental APRS (AX.25 / Bell-202 AFSK) receive.</string>
+
+    <!-- PKT (packet mode) tab -->
+    <string name="pkt_title">Packet radio</string>
+    <string name="pkt_desc">Monitor, receive and transmit CC1101 packet-mode frames (2-FSK/GFSK/4-FSK/MSK). Set this radio\'s address and the address-check mode, then start the monitor. Stop other monitors first.</string>
+    <string name="pkt_frequency">Frequency (presets)</string>
+    <string name="pkt_manual_mhz">Manual MHz</string>
+    <string name="pkt_set">Set</string>
+    <string name="pkt_current_freq">Using %.4f MHz</string>
+    <string name="pkt_modulation">Modulation</string>
+    <string name="pkt_radio_tuning">Radio tuning</string>
+    <string name="pkt_drate">Data rate</string>
+    <string name="pkt_rxbw">RX bandwidth</string>
+    <string name="pkt_dev">Deviation</string>
+    <string name="pkt_addressing">Addressing</string>
+    <string name="pkt_addr">Device address</string>
+    <string name="pkt_addr_hint">This radio\'s address (0–255) for packet filtering.</string>
+    <string name="pkt_addrchk">Address check</string>
+    <string name="pkt_chk_off">Off (all)</string>
+    <string name="pkt_chk_addr">Address</string>
+    <string name="pkt_chk_bcast">Addr + 0 bcast</string>
+    <string name="pkt_chk_bcast2">Addr + 0/255</string>
+    <string name="pkt_crc">CRC check</string>
+    <string name="pkt_start">Start</string>
+    <string name="pkt_stop">Stop</string>
+    <string name="pkt_clear">Clear</string>
+    <string name="pkt_count">%d packet(s)</string>
+    <string name="pkt_none">No packets yet.</string>
+    <string name="pkt_other_running">Another monitor is running — stop it first.</string>
+    <string name="pkt_tx_title">Transmit</string>
+    <string name="pkt_tx_desc">Send a packet in the configured modulation via the chip\'s packet engine (it builds the length/address/CRC — give the payload only). The optional destination address uses pkt sendto for a receiver with address check on. Monitor must be stopped.</string>
+    <string name="pkt_tx_dest">Dest address (0–255, optional)</string>
+    <string name="pkt_tx_payload">Payload (hex)</string>
+    <string name="pkt_tx_send">Send</string>
+    <string name="pkt_tx_sent">Packet sent: %s</string>
+    <string name="pkt_tx_bad_hex">Payload must be an even number of hex digits.</string>
+    <string name="pkt_tx_bad_dest">Destination address must be 0–255.</string>
+    <string name="pkt_close">Close</string>
+    <string name="pkt_detail_rx">Received packet</string>
+    <string name="pkt_detail_tx">Transmitted packet</string>
+    <string name="pkt_d_time">Time</string>
+    <string name="pkt_d_mod">Modulation</string>
+    <string name="pkt_d_addr">Address</string>
+    <string name="pkt_d_rssi">RSSI</string>
+    <string name="pkt_d_lqi">LQI</string>
+    <string name="pkt_d_crc">CRC</string>
+    <string name="pkt_d_crc_off">check off</string>
+    <string name="pkt_d_len">Length</string>
+    <string name="pkt_d_hex">Hex</string>
+    <string name="pkt_d_ascii">ASCII</string>
+
+    <!-- Sweep (spectrum / waterfall) tab -->
+    <string name="cfg_tabs_sweep">Sweep tab</string>
+    <string name="cfg_tabs_sweep_desc">Swept-spectrum waterfall (RSSI vs. frequency) like an SDR.</string>
+    <string name="sweep_title">Spectrum sweep</string>
+    <string name="sweep_desc">Swept-tuned analyzer: the radio hops across the span reading RSSI, one pass per waterfall row. Start and stop must be in one band (300–348, 387–464 or 779–928 MHz), step ≥ 1 kHz, ≤ 512 points. Blocks monitoring and transmitting.</string>
+    <string name="sweep_start">Start</string>
+    <string name="sweep_stop">Stop</string>
+    <string name="sweep_clear">Clear</string>
+    <string name="sweep_screenshot">Save image</string>
+    <string name="sweep_other_running">Another monitor is running — stop it first.</string>
+    <string name="sweep_start_mhz">Start (MHz)</string>
+    <string name="sweep_stop_mhz">Stop (MHz)</string>
+    <string name="sweep_step_khz">Step (kHz)</string>
+    <string name="sweep_rxbw_auto">RBW: Auto</string>
+    <string name="sweep_points">%d points / row</string>
+    <string name="sweep_err_step">Step must be ≥ 1 kHz.</string>
+    <string name="sweep_err_order">Stop must be ≥ start.</string>
+    <string name="sweep_err_band">Start and stop must be in one band: 300–348, 387–464 or 779–928 MHz.</string>
+    <string name="sweep_err_points">Too many points (max 512): use a larger step or a narrower span.</string>
+    <string name="sweep_waiting">Waiting for sweep data… press Start.</string>
+    <string name="sweep_saved">Spectrum image saved: %s</string>
+    <string name="sweep_save_failed">Could not save the spectrum image</string>
 </resources>

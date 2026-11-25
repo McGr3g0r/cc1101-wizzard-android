@@ -46,6 +46,7 @@ class CliEngine(
     // ---- outputs (wired by the ViewModel) -------------------------------
     var onLog: ((LogLine) -> Unit)? = null
     var onMonitor: ((CapturedPacket) -> Unit)? = null
+    var onSweep: ((SweepLine) -> Unit)? = null
     var onConnection: ((ConnState, UsbDevice?) -> Unit)? = null
 
     private val ids = AtomicLong(0)
@@ -83,7 +84,9 @@ class CliEngine(
 
     private fun isMonitorControl(command: String): Boolean {
         val t = command.trim()
-        return t == "monitor" || t.startsWith("monitor stop") || t.startsWith("monitor status")
+        if (t == "monitor" || t.startsWith("monitor stop") || t.startsWith("monitor status")) return true
+        // sweep shares the lock; its own control commands must still get through
+        return Regex("""^radio\s+r\d+\s+sweep(\s|$)""").containsMatchIn(t)
     }
 
     // ---- public command API ---------------------------------------------
@@ -178,6 +181,12 @@ class CliEngine(
             val pkt = MonitorParser.parse(line)
             emit(LogKind.MONITOR, line, pkt)
             if (pkt != null) onMonitor?.invoke(pkt)
+            return
+        }
+
+        // 1b) sweep waterfall row? route to the sweep sink and don't flood the log
+        if (MonitorParser.isSweepLine(line)) {
+            MonitorParser.parseSweep(line)?.let { onSweep?.invoke(it) }
             return
         }
 

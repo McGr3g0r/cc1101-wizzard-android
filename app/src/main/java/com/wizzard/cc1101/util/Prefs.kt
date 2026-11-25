@@ -120,6 +120,32 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_COALESCE_MS, 500)
         set(v) { sp.edit().putInt(KEY_COALESCE_MS, v.coerceIn(50, 3000)).apply() }
 
+    /**
+     * Whether the optional APRS tab is shown in the main tab bar. Off by default:
+     * APRS is experimental and most users don't need it, so it stays hidden until
+     * enabled in Settings.
+     */
+    var tabAprsVisible: Boolean
+        get() = sp.getBoolean(KEY_TAB_APRS, false)
+        set(v) { sp.edit().putBoolean(KEY_TAB_APRS, v).apply() }
+
+    /**
+     * Whether the optional PKT (packet-mode) tab is shown. Off by default — the
+     * packet workflow (2-FSK/GFSK addressed packets) is a specialist feature, so
+     * it is opt-in via Settings like APRS.
+     */
+    var tabPktVisible: Boolean
+        get() = sp.getBoolean(KEY_TAB_PKT, false)
+        set(v) { sp.edit().putBoolean(KEY_TAB_PKT, v).apply() }
+
+    /**
+     * Whether the optional Sweep (spectrum/waterfall) tab is shown. Off by default
+     * like the other specialist tabs; enabled from Settings.
+     */
+    var tabSweepVisible: Boolean
+        get() = sp.getBoolean(KEY_TAB_SWEEP, false)
+        set(v) { sp.edit().putBoolean(KEY_TAB_SWEEP, v).apply() }
+
     companion object {
         private const val KEY_GPS = "gps_enabled"
         private const val KEY_TX_GAP = "tx_gap_ms"
@@ -134,5 +160,8 @@ class Prefs(context: Context) {
         private const val KEY_CAP_RSSI = "capture_rssi_gate"
         private const val KEY_COALESCE_ON = "coalesce_enabled"
         private const val KEY_COALESCE_MS = "coalesce_window_ms"
+        private const val KEY_TAB_APRS = "tab_aprs_visible"
+        private const val KEY_TAB_PKT = "tab_pkt_visible"
+        private const val KEY_TAB_SWEEP = "tab_sweep_visible"
     }
 }

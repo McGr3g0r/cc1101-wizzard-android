@@ -45,6 +45,64 @@ object MonitorParser {
         return if (t.startsWith("{")) parseJson(t) else parseHex(t)
     }
 
+    // ---- swept-spectrum ("sweep") lines ---------------------------------
+    //
+    // JSON: { "sweep":"r0", "ts":123, "f0":433000000, "df":25000, "n":73, "rbw":58035, "rssi":"5A5B.." }
+    // HEX : sweep r0 ts=123 f0=433000000 df=25000 n=73 rbw=58035 5A5B..
+
+    /** True if the line is a sweep waterfall row (either form). */
+    fun isSweepLine(line: String): Boolean {
+        val t = line.trim()
+        if (t.startsWith("{") && t.contains("\"sweep\"")) return true
+        val parts = t.split(Regex("\\s+"))
+        return parts.size >= 7 && parts[0] == "sweep" &&
+            parts[1].matches(Regex("r\\d")) && parts[2].startsWith("ts=")
+    }
+
+    /** Parse a sweep row, or null. */
+    fun parseSweep(line: String): SweepLine? {
+        val t = line.trim()
+        return try {
+            if (t.startsWith("{")) {
+                val o = JSONObject(t)
+                SweepLine(
+                    iface = o.optString("sweep", "r0"),
+                    ts = o.optLong("ts"),
+                    f0Hz = o.optLong("f0"),
+                    dfHz = o.optLong("df"),
+                    n = o.optInt("n"),
+                    rbwHz = o.optLong("rbw"),
+                    rssiRaw = hexBytesToInts(o.optString("rssi")),
+                )
+            } else {
+                val parts = t.split(Regex("\\s+"))
+                val map = HashMap<String, String>()
+                for (p in parts) {
+                    val eq = p.indexOf('=')
+                    if (eq > 0) map[p.substring(0, eq)] = p.substring(eq + 1)
+                }
+                SweepLine(
+                    iface = parts[1],
+                    ts = map["ts"]?.toLongOrNull() ?: 0,
+                    f0Hz = map["f0"]?.toLongOrNull() ?: 0,
+                    dfHz = map["df"]?.toLongOrNull() ?: 0,
+                    n = map["n"]?.toIntOrNull() ?: 0,
+                    rbwHz = map["rbw"]?.toLongOrNull() ?: 0,
+                    rssiRaw = hexBytesToInts(parts.last()),
+                )
+            }.takeIf { it.rssiRaw.isNotEmpty() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** "5A5B..." → [0x5A, 0x5B, ...] as unsigned ints (2 hex digits per point). */
+    private fun hexBytesToInts(hex: String): IntArray {
+        val c = hex.trim().filter { !it.isWhitespace() }
+        val n = c.length / 2
+        return IntArray(n) { c.substring(it * 2, it * 2 + 2).toInt(16) }
+    }
+
     private fun parseJson(t: String): CapturedPacket? = try {
         val o = JSONObject(t)
         val iface = o.optString("iface", "r0")
@@ -61,7 +119,11 @@ object MonitorParser {
             CapturedPacket.Ook(iface, ts, rssi, lqi, us, t)
         } else {
             val hex = o.optString("hex")
-            CapturedPacket.Fsk(iface, ts, rssi, lqi, mod, o.optBoolean("crc"), hexToBytes(hex), t)
+            CapturedPacket.Fsk(
+                iface, ts, rssi, lqi, mod, o.optBoolean("crc"), hexToBytes(hex), t,
+                addr = if (o.has("addr")) o.optInt("addr") else null,
+                crcEn = if (o.has("crcen")) o.optBoolean("crcen") else null,
+            )
         }
     } catch (e: Exception) {
         null
@@ -93,7 +155,11 @@ object MonitorParser {
             CapturedPacket.Ook(iface, ts, rssi, lqi, us, t)
         } else {
             val crc = map["crc"] == "1"
-            CapturedPacket.Fsk(iface, ts, rssi, lqi, mod, crc, hexToBytes(payload), t)
+            CapturedPacket.Fsk(
+                iface, ts, rssi, lqi, mod, crc, hexToBytes(payload), t,
+                addr = map["addr"]?.toIntOrNull(),
+                crcEn = map["crcen"]?.let { it == "1" },
+            )
         }
     } catch (e: Exception) {
         null

@@ -196,6 +196,37 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
     suspend fun monitorStop() = engine.send("monitor stop")
     suspend fun monitorStatus() = engine.send("monitor status")
 
+    // ---- swept spectrum (waterfall source) ------------------------------
+
+    /**
+     * Start the firmware swept-tuned analyzer:
+     * `radio <if> sweep start <startHz> <stopHz> <stepHz> [rxbwHz] [lines] [dwellUs] json`.
+     * Rows then stream asynchronously as `{ "sweep":... }` lines (routed via
+     * CliEngine.onSweep). [rxbwHz] 0 = auto (narrowest filter ≥ step); [lines] 0 =
+     * endless until [sweepStop]; [dwellUs] 0 = auto. The firmware enforces: step ≥
+     * 1000, start/stop in one band (300–348 / 387–464 / 779–928 MHz) and ≤ 512 points.
+     */
+    suspend fun sweepStart(
+        iface: String, startHz: Long, stopHz: Long, stepHz: Long,
+        rxbwHz: Long = 0, lines: Int = 0, dwellUs: Int = 0,
+    ): CliEngine.CmdResult {
+        // Trailing optional args are positional: emit only as many as needed so the
+        // ones we leave at 0/"auto" fall back to firmware defaults.
+        val opt = buildString {
+            val needRxbw = rxbwHz > 0
+            val needLines = lines > 0
+            val needDwell = dwellUs > 0
+            if (needRxbw || needLines || needDwell) append(" ${if (rxbwHz > 0) rxbwHz else 0}")
+            if (needLines || needDwell) append(" ${if (lines > 0) lines else 0}")
+            if (needDwell) append(" $dwellUs")
+        }
+        val cmd = "radio $iface sweep start $startHz $stopHz $stepHz$opt json"
+        return engine.send(cmd, timeoutMs = 5000)
+    }
+
+    suspend fun sweepStop(iface: String) = engine.send("radio $iface sweep stop")
+    suspend fun sweepStatus(iface: String) = engine.send("radio $iface sweep status")
+
     // ---- transmit -------------------------------------------------------
 
     /** Packet-mode send in the currently configured modulation. */
@@ -206,6 +237,52 @@ class FirmwareCli(private val engine: CliEngine, private val appContext: Context
                 listOf(appContext.getString(R.string.fw_packet_too_long, cmd.length, MAX_CMD_LEN)))
         }
         return engine.send(cmd)
+    }
+
+    /**
+     * Transmit a payload through the firmware's hardware packet engine
+     * (`radio <if> pkt send` / `pkt sendto`). Only the payload is given — the chip
+     * adds preamble, sync word, length byte, address byte and CRC from the radio's
+     * current framing config, so the address must NOT be prepended here.
+     *
+     * [dest] (0..255) uses `pkt sendto <addr>` so the chip inserts that recipient
+     * address (requires `addrchk` > 0 on the receiver); null uses `pkt send`.
+     * [repeat]/[gapMs] use the firmware's on-device repeat/gap. A payload that
+     * would exceed the one-line CLI budget is staged with `pkt add` then sent with
+     * `pkt sendbuf` (which uses the configured address, so [dest] is ignored there).
+     */
+    suspend fun pktSend(
+        iface: String, hex: String, dest: Int? = null, repeat: Int = 1, gapMs: Long = 0,
+    ): CliEngine.CmdResult {
+        val h = hex.lowercase()
+        val rep = repeat.coerceAtLeast(1)
+        val tail = buildString {
+            if (rep > 1 || gapMs > 0) append(" $rep")
+            if (gapMs > 0) append(" $gapMs")
+        }
+        val timeout = 4000L + rep * 500L
+        val prefix = if (dest != null) "radio $iface pkt sendto $dest " else "radio $iface pkt send "
+        val oneLine = "$prefix$h$tail"
+        if (oneLine.length <= MAX_CMD_LEN) return engine.send(oneLine, timeoutMs = timeout)
+
+        // Payload too long for one line: stage it, then send the buffer. sendbuf has
+        // no address variant, so fall back to the configured address.
+        if (!engine.send("radio $iface pkt clear").ok) {
+            return CliEngine.CmdResult(oneLine, false, listOf("pkt clear failed"))
+        }
+        val addPrefix = "radio $iface pkt add "
+        var i = 0
+        while (i < h.length) {
+            // keep each chunk an even number of hex digits within the line budget
+            var span = (MAX_CMD_LEN - addPrefix.length).coerceAtMost(h.length - i)
+            if (span % 2 != 0) span--
+            val chunk = h.substring(i, i + span)
+            if (!engine.send("$addPrefix$chunk").ok) {
+                return CliEngine.CmdResult("$addPrefix$chunk", false, listOf("pkt add failed"))
+            }
+            i += span
+        }
+        return engine.send("radio $iface pkt sendbuf$tail", timeoutMs = timeout)
     }
 
     /**

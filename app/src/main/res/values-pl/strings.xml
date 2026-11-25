@@ -213,4 +213,84 @@
     <string name="cfg_fifocal_title">Stosuj kalibracje FIFO (fifocal)</string>
     <string name="cfg_fifocal_hint">Skaluje data rate FIFO (promile, 1000 = 1.0x). Ustaw ~500, gdy plytka taktuje FIFO ~2x za szybko. Wysylane przed kazdym nadaniem FIFO.</string>
     <string name="cfg_fifocal_value">Wartosc fifocal</string>
+
+    <!-- widocznosc zakladek opcjonalnych -->
+    <string name="cfg_tabs_title">Widoczne zakladki</string>
+    <string name="cfg_tabs_desc">Pokaz lub ukryj zakladki opcjonalne na gornym pasku. Zakladki podstawowe (Monitor, Protocol, TX, cc1101) sa zawsze widoczne.</string>
+    <string name="cfg_tabs_pkt">Zakladka PKT</string>
+    <string name="cfg_tabs_pkt_desc">Tryb pakietowy: monitoring, odbior i nadawanie pakietow 2-FSK/GFSK z filtrowaniem adresu.</string>
+    <string name="cfg_tabs_aprs">Zakladka APRS</string>
+    <string name="cfg_tabs_aprs_desc">Eksperymentalny odbior APRS (AX.25 / Bell-202 AFSK).</string>
+
+    <!-- zakladka PKT (tryb pakietowy) -->
+    <string name="pkt_title">Radio pakietowe</string>
+    <string name="pkt_desc">Monitoring, odbior i nadawanie ramek w trybie pakietowym CC1101 (2-FSK/GFSK/4-FSK/MSK). Ustaw adres tego radia i tryb sprawdzania adresu, nastepnie uruchom monitor. Najpierw zatrzymaj inne monitory.</string>
+    <string name="pkt_frequency">Czestotliwosc (presety)</string>
+    <string name="pkt_manual_mhz">Recznie MHz</string>
+    <string name="pkt_set">Ustaw</string>
+    <string name="pkt_current_freq">Uzywam %.4f MHz</string>
+    <string name="pkt_modulation">Modulacja</string>
+    <string name="pkt_radio_tuning">Strojenie radia</string>
+    <string name="pkt_drate">Data rate</string>
+    <string name="pkt_rxbw">Pasmo RX (rxbw)</string>
+    <string name="pkt_dev">Dewiacja</string>
+    <string name="pkt_addressing">Adresowanie</string>
+    <string name="pkt_addr">Adres urzadzenia</string>
+    <string name="pkt_addr_hint">Adres tego radia (0–255) do filtrowania pakietow.</string>
+    <string name="pkt_addrchk">Sprawdzanie adresu</string>
+    <string name="pkt_chk_off">Wyl. (wszystko)</string>
+    <string name="pkt_chk_addr">Adres</string>
+    <string name="pkt_chk_bcast">Adres + 0 bcast</string>
+    <string name="pkt_chk_bcast2">Adres + 0/255</string>
+    <string name="pkt_crc">Sprawdzanie CRC</string>
+    <string name="pkt_start">Start</string>
+    <string name="pkt_stop">Stop</string>
+    <string name="pkt_clear">Wyczysc</string>
+    <string name="pkt_count">%d pakiet(ow)</string>
+    <string name="pkt_none">Brak pakietow.</string>
+    <string name="pkt_other_running">Inny monitor jest uruchomiony — najpierw go zatrzymaj.</string>
+    <string name="pkt_tx_title">Nadawanie</string>
+    <string name="pkt_tx_desc">Wyslij pakiet w ustawionej modulacji przez sprzetowy silnik pakietowy chipa (dodaje on dlugosc/adres/CRC — podaj tylko dane). Opcjonalny adres docelowy uzywa pkt sendto dla odbiornika z wlaczonym sprawdzaniem adresu. Monitor musi byc zatrzymany.</string>
+    <string name="pkt_tx_dest">Adres docelowy (0–255, opcjonalnie)</string>
+    <string name="pkt_tx_payload">Dane (hex)</string>
+    <string name="pkt_tx_send">Wyslij</string>
+    <string name="pkt_tx_sent">Pakiet wyslany: %s</string>
+    <string name="pkt_tx_bad_hex">Dane musza miec parzysta liczbe cyfr hex.</string>
+    <string name="pkt_tx_bad_dest">Adres docelowy musi byc 0–255.</string>
+    <string name="pkt_close">Zamknij</string>
+    <string name="pkt_detail_rx">Odebrany pakiet</string>
+    <string name="pkt_detail_tx">Nadany pakiet</string>
+    <string name="pkt_d_time">Czas</string>
+    <string name="pkt_d_mod">Modulacja</string>
+    <string name="pkt_d_addr">Adres</string>
+    <string name="pkt_d_rssi">RSSI</string>
+    <string name="pkt_d_lqi">LQI</string>
+    <string name="pkt_d_crc">CRC</string>
+    <string name="pkt_d_crc_off">brak sprawdzania</string>
+    <string name="pkt_d_len">Dlugosc</string>
+    <string name="pkt_d_hex">Hex</string>
+    <string name="pkt_d_ascii">ASCII</string>
+
+    <!-- zakladka Sweep (widmo / waterfall) -->
+    <string name="cfg_tabs_sweep">Zakladka Sweep</string>
+    <string name="cfg_tabs_sweep_desc">Waterfall skanowania widma (RSSI od czestotliwosci) jak w SDR.</string>
+    <string name="sweep_title">Skanowanie widma</string>
+    <string name="sweep_desc">Analizator z przestrajaniem: radio przeskakuje po zakresie i czyta RSSI, jedno przejscie = jeden wiersz waterfalla. Start i stop musza byc w jednym pasmie (300–348, 387–464 lub 779–928 MHz), krok ≥ 1 kHz, ≤ 512 punktow. Blokuje monitoring i nadawanie.</string>
+    <string name="sweep_start">Start</string>
+    <string name="sweep_stop">Stop</string>
+    <string name="sweep_clear">Wyczysc</string>
+    <string name="sweep_screenshot">Zapisz obraz</string>
+    <string name="sweep_other_running">Inny monitor jest uruchomiony — najpierw go zatrzymaj.</string>
+    <string name="sweep_start_mhz">Start (MHz)</string>
+    <string name="sweep_stop_mhz">Stop (MHz)</string>
+    <string name="sweep_step_khz">Krok (kHz)</string>
+    <string name="sweep_rxbw_auto">RBW: Auto</string>
+    <string name="sweep_points">%d punktow / wiersz</string>
+    <string name="sweep_err_step">Krok musi byc ≥ 1 kHz.</string>
+    <string name="sweep_err_order">Stop musi byc ≥ start.</string>
+    <string name="sweep_err_band">Start i stop musza byc w jednym pasmie: 300–348, 387–464 lub 779–928 MHz.</string>
+    <string name="sweep_err_points">Za duzo punktow (max 512): uzyj wiekszego kroku lub wezszego zakresu.</string>
+    <string name="sweep_waiting">Oczekiwanie na dane skanowania… nacisnij Start.</string>
+    <string name="sweep_saved">Zapisano obraz widma: %s</string>
+    <string name="sweep_save_failed">Nie udalo sie zapisac obrazu widma</string>
 </resources>

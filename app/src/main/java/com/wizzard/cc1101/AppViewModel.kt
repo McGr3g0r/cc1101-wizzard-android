@@ -226,6 +226,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTheme(id: String) { themeId = id; prefs.themeId = id }
     fun updateAutoReconnect(enabled: Boolean) { autoReconnect = enabled; prefs.autoReconnect = enabled }
 
+    // ---- optional-tab visibility (APRS / PKT, off by default) -------------
+    var tabAprsVisible by mutableStateOf(prefs.tabAprsVisible); private set
+    var tabPktVisible by mutableStateOf(prefs.tabPktVisible); private set
+    var tabSweepVisible by mutableStateOf(prefs.tabSweepVisible); private set
+    fun updateTabAprsVisible(on: Boolean) {
+        tabAprsVisible = on; prefs.tabAprsVisible = on
+        if (!on && aprsRunning) stopAprs()
+    }
+    fun updateTabPktVisible(on: Boolean) {
+        tabPktVisible = on; prefs.tabPktVisible = on
+        if (!on && pktRunning) stopPkt()
+    }
+    fun updateTabSweepVisible(on: Boolean) {
+        tabSweepVisible = on; prefs.tabSweepVisible = on
+        if (!on && sweepRunning) stopSweep()
+    }
+
     // ---- OOK monitor capture window (firmware build 2+) -------------------
     var captureMinUs by mutableStateOf(prefs.captureMinUs); private set
     var captureGapUs by mutableStateOf(prefs.captureGapUs); private set
@@ -316,9 +333,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // packet is already attached to its MONITOR log line; also bucket it so a
         // later tap can analyse the whole transmission, not just this one capture.
         engine.onMonitor = { pkt ->
-            if (aprsRunning) onAprsCapture(pkt)
-            else coalescer.offer(pkt, System.currentTimeMillis())
+            when {
+                aprsRunning -> onAprsCapture(pkt)
+                pktRunning -> onPktCapture(pkt)
+                else -> coalescer.offer(pkt, System.currentTimeMillis())
+            }
         }
+        engine.onSweep = { row -> if (sweepRunning) onSweepRow(row) }
         engine.onConnection = { state, dev ->
             conn = state
             connectedName = dev?.let { it.productName ?: it.deviceName }
@@ -479,6 +500,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startMonitor(profile: String) = scope {
         if (aprsRunning) { engine.log(LogKind.ERROR, "APRS monitor is running — stop it first"); return@scope }
+        if (pktRunning) { engine.log(LogKind.ERROR, "PKT monitor is running — stop it first"); return@scope }
+        if (sweepRunning) { engine.log(LogKind.ERROR, "Sweep is running — stop it first"); return@scope }
         coalescer.reset()   // fresh session: don't group across start/stop
         val res = fw.monitorStart(selectedIface, profile, json = true,
             minUs = captureMinUs, maxGapUs = captureGapUs, rssiGate = captureRssiGate)
@@ -535,6 +558,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startAprs() = scope {
         if (monitorRunning) { engine.log(LogKind.ERROR, "Main monitor is running — stop it first"); return@scope }
+        if (pktRunning) { engine.log(LogKind.ERROR, "PKT monitor is running — stop it first"); return@scope }
+        if (sweepRunning) { engine.log(LogKind.ERROR, "Sweep is running — stop it first"); return@scope }
         // ensure a 2-FSK profile at the selected frequency; AFSK is demodulated on
         // the host from the direct pulse-train, so the radio only needs to slice.
         val lines = listOf(
@@ -599,6 +624,289 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             } ?: throw java.io.IOException("createFile")
             engine.log(LogKind.INFO, str(R.string.vm_export_ok, "aprs_$tsFile"))
         }.onFailure { engine.log(LogKind.ERROR, str(R.string.vm_export_failed)) }
+    }
+
+    // ===================== PKT (packet mode: 2-FSK / GFSK) =============
+    /** Direction of a PKT list entry. */
+    enum class PktDir { RX, TX }
+
+    /** One packet shown in the PKT list (received or transmitted). */
+    data class PktEntry(
+        val timeMs: Long,
+        val dir: PktDir,
+        val mod: String,
+        val bytes: ByteArray,
+        val rssi: Int? = null,   // RX only
+        val lqi: Int? = null,    // RX only
+        val crc: Boolean? = null, // RX only (firmware CRC check result)
+        val crcEn: Boolean? = null, // whether CRC checking was on (RX)
+        val addr: Int? = null,    // address byte, when addrchk > 0 (RX) or dest (TX)
+        val raw: String = "",
+    ) {
+        override fun equals(other: Any?) = other is PktEntry &&
+            timeMs == other.timeMs && dir == other.dir && bytes.contentEquals(other.bytes)
+        override fun hashCode() = (timeMs.hashCode() * 31 + dir.hashCode()) * 31 + bytes.contentHashCode()
+    }
+
+    private val MAX_PKT = 500
+    private val PKT_PROFILE = "pkt"
+
+    val pktPackets: SnapshotStateList<PktEntry> = mutableStateListOf()
+
+    /** Common packet-mode frequencies (Hz); user can also type one in. */
+    val pktPresets: List<Pair<String, Long>> = listOf(
+        "433.920 MHz" to 433_920_000L,
+        "868.300 MHz" to 868_300_000L,
+        "915.000 MHz" to 915_000_000L,
+    )
+    var pktFreqHz by mutableStateOf(433_920_000L); private set
+    fun updatePktFreq(hz: Long) { pktFreqHz = hz.coerceIn(300_000_000L, 928_000_000L) }
+
+    /** Packet-mode modulation (what the firmware RX FIFO expects). */
+    val pktMods = listOf("2fsk", "gfsk", "4fsk", "msk")
+    var pktMod by mutableStateOf("2fsk"); private set
+    fun updatePktMod(m: String) { if (m in pktMods) pktMod = m }
+
+    var pktDrate by mutableStateOf(4800); private set
+    var pktRxbw by mutableStateOf(135000); private set
+    var pktDev by mutableStateOf(5000); private set
+    fun updatePktDrate(v: Int) { pktDrate = v.coerceIn(100, 500000) }
+    fun updatePktRxbw(v: Int) { pktRxbw = v.coerceIn(50000, 812000) }
+    fun updatePktDev(v: Int) { pktDev = v.coerceIn(1000, 380000) }
+
+    /** This radio's device address (0-255) used for packet filtering. */
+    var pktAddr by mutableStateOf(0); private set
+    fun updatePktAddr(v: Int) { pktAddr = v.coerceIn(0, 255) }
+
+    /**
+     * Address-check mode (CC1101 ADDR_CHK):
+     *  0 = off (receive everything)
+     *  1 = address only (no broadcast)
+     *  2 = address + 0x00 broadcast
+     *  3 = address + 0x00 + 0xFF broadcast
+     */
+    var pktAddrChk by mutableStateOf(0); private set
+    fun updatePktAddrChk(v: Int) { pktAddrChk = v.coerceIn(0, 3) }
+
+    var pktCrc by mutableStateOf(true); private set
+    fun updatePktCrc(on: Boolean) { pktCrc = on }
+
+    /** Destination address byte prepended to a TX payload when set (blank = none). */
+    var pktTxDest by mutableStateOf("")
+    /** Hex payload the user wants to transmit. */
+    var pktTxHex by mutableStateOf("")
+
+    var pktRunning by mutableStateOf(false); private set
+    var pktParamsExpanded by mutableStateOf(true)
+
+    /** Build the profile `set` lines shared by RX and TX. */
+    private fun pktProfileLines(withRx: Boolean): List<String> = buildList {
+        add("set mod $pktMod")
+        add("set freq $pktFreqHz")
+        add("set drate $pktDrate")
+        add("set rxbw $pktRxbw")
+        add("set dev $pktDev")
+        add("set crc ${if (pktCrc) 1 else 0}")
+        add("set addrchk $pktAddrChk")
+        add("set addr $pktAddr")
+        if (withRx) add("rx")
+    }
+
+    fun startPkt() = scope {
+        if (monitorRunning) { engine.log(LogKind.ERROR, "Main monitor is running — stop it first"); return@scope }
+        if (aprsRunning) { engine.log(LogKind.ERROR, "APRS monitor is running — stop it first"); return@scope }
+        if (sweepRunning) { engine.log(LogKind.ERROR, "Sweep is running — stop it first"); return@scope }
+        if (!fw.profileWrite(PKT_PROFILE, pktProfileLines(withRx = true))) {
+            engine.log(LogKind.ERROR, "PKT profile write failed"); return@scope
+        }
+        val res = fw.monitorStart(
+            selectedIface, PKT_PROFILE, json = true,
+            minUs = 0, maxGapUs = 0, rssiGate = captureRssiGate,
+        )
+        pktRunning = res.ok
+        engine.blockWhileMonitor = res.ok
+        if (res.ok) engine.log(
+            LogKind.INFO,
+            "PKT monitor started ($pktMod) @ ${pktFreqHz / 1_000_000.0} MHz " +
+                "addr=$pktAddr chk=$pktAddrChk",
+        )
+    }
+
+    fun stopPkt() = scope {
+        fw.monitorStop()
+        pktRunning = false
+        engine.blockWhileMonitor = false
+    }
+
+    fun clearPkt() { pktPackets.clear() }
+
+    /** A received FSK capture becomes one RX entry (OOK captures are ignored here). */
+    private fun onPktCapture(pkt: CapturedPacket) {
+        if (pkt !is CapturedPacket.Fsk) return
+        viewModelScope.launch {
+            pktPackets.add(
+                PktEntry(
+                    timeMs = System.currentTimeMillis(), dir = PktDir.RX, mod = pkt.mod,
+                    bytes = pkt.bytes, rssi = pkt.rssi, lqi = pkt.lqi, crc = pkt.crc,
+                    crcEn = pkt.crcEn, addr = pkt.addr, raw = pkt.raw,
+                )
+            )
+            if (pktPackets.size > MAX_PKT) pktPackets.removeAt(0)
+        }
+    }
+
+    /**
+     * Transmit the hex payload in the configured packet mode. Must not run while a
+     * monitor is capturing (single radio). Applies the PKT profile first so mod /
+     * freq / address match, then `radio <if> send <hex>`.
+     */
+    fun sendPkt() = scope {
+        if (monitorRunning || aprsRunning || pktRunning || sweepRunning) {
+            engine.log(LogKind.ERROR, "Stop the monitor before transmitting"); return@scope
+        }
+        val destStr = pktTxDest.trim().filter { !it.isWhitespace() }
+        val payload = pktTxHex.trim().filter { !it.isWhitespace() }
+        if (payload.isEmpty() || payload.length % 2 != 0 || !payload.all { it in "0123456789abcdefABCDEF" }) {
+            engine.log(LogKind.ERROR, str(R.string.pkt_tx_bad_hex)); return@scope
+        }
+        // The hardware packet engine (`pkt send`/`pkt sendto`) builds the frame —
+        // length byte, address byte and CRC — from the radio config, so we pass the
+        // payload only and let `sendto` insert the destination address.
+        val dest: Int? = if (destStr.isNotEmpty()) {
+            val n = destStr.toIntOrNull()
+            if (n == null || n !in 0..255) { engine.log(LogKind.ERROR, str(R.string.pkt_tx_bad_dest)); return@scope }
+            n
+        } else null
+        val hex = payload.lowercase()
+        if (!fw.profileWrite(PKT_PROFILE, pktProfileLines(withRx = false))) {
+            engine.log(LogKind.ERROR, "PKT profile write failed"); return@scope
+        }
+        fw.profileApply(PKT_PROFILE, selectedIface)
+        val res = fw.pktSend(selectedIface, hex, dest = dest)
+        if (res.ok) {
+            pktPackets.add(
+                PktEntry(
+                    timeMs = System.currentTimeMillis(), dir = PktDir.TX, mod = pktMod,
+                    bytes = com.wizzard.cc1101.cli.MonitorParser.hexToBytes(hex),
+                    addr = dest, raw = "tx ${dest?.let { "->$it " } ?: ""}$hex",
+                )
+            )
+            if (pktPackets.size > MAX_PKT) pktPackets.removeAt(0)
+            engine.log(LogKind.INFO, str(R.string.pkt_tx_sent, hex))
+        } else {
+            engine.log(LogKind.ERROR, res.lines.joinToString(" ").ifBlank { "send failed" })
+        }
+    }
+
+    // ===================== SWEEP (swept-spectrum / waterfall) =========
+    private val MAX_SWEEP_ROWS = 400
+    /** Newest-last waterfall rows (one per sweep pass). */
+    val sweepRows: SnapshotStateList<SweepLine> = mutableStateListOf()
+
+    /** Predefined ranges (label, startHz, stopHz, stepHz) within one CC1101 band. */
+    data class SweepPreset(val label: String, val startHz: Long, val stopHz: Long, val stepHz: Long)
+    val sweepPresets: List<SweepPreset> = listOf(
+        SweepPreset("433 ISM", 433_050_000L, 434_790_000L, 20_000L),
+        SweepPreset("315", 314_000_000L, 316_000_000L, 25_000L),
+        SweepPreset("868 SRD", 863_000_000L, 870_000_000L, 50_000L),
+        SweepPreset("915 ISM", 902_000_000L, 928_000_000L, 100_000L),
+    )
+
+    /** CC1101 RX-filter bandwidths the firmware snaps to (Hz); first entry = Auto (0). */
+    val sweepRxbwOptions: List<Long> = listOf(
+        0L, 58035, 67708, 81250, 101563, 116071, 135417, 162500, 203125,
+        232143, 270833, 325000, 406250, 464286, 541667, 650000, 812500,
+    )
+
+    var sweepStartHz by mutableStateOf(433_050_000L); private set
+    var sweepStopHz by mutableStateOf(434_790_000L); private set
+    var sweepStepHz by mutableStateOf(20_000L); private set
+    var sweepRxbwHz by mutableStateOf(0L); private set   // 0 = auto
+    var sweepRunning by mutableStateOf(false); private set
+    var sweepParamsExpanded by mutableStateOf(true)
+
+    fun updateSweepStart(hz: Long) { sweepStartHz = hz.coerceIn(300_000_000L, 928_000_000L) }
+    fun updateSweepStop(hz: Long) { sweepStopHz = hz.coerceIn(300_000_000L, 928_000_000L) }
+    fun updateSweepStep(hz: Long) { sweepStepHz = hz.coerceIn(1_000L, 10_000_000L) }
+    fun updateSweepRxbw(hz: Long) { sweepRxbwHz = if (hz in sweepRxbwOptions) hz else 0L }
+    fun applySweepPreset(p: SweepPreset) {
+        if (sweepRunning) return
+        sweepStartHz = p.startHz; sweepStopHz = p.stopHz; sweepStepHz = p.stepHz
+    }
+
+    /** CC1101 sweep band of a frequency: 1/2/3, or 0 if outside all bands. */
+    private fun sweepBand(hz: Long): Int = when {
+        hz in 300_000_000L..348_000_000L -> 1
+        hz in 387_000_000L..464_000_000L -> 2
+        hz in 779_000_000L..928_000_000L -> 3
+        else -> 0
+    }
+
+    /** Number of points the current range would produce. */
+    val sweepPointCount: Int get() =
+        if (sweepStopHz < sweepStartHz || sweepStepHz < 1000) 0
+        else ((sweepStopHz - sweepStartHz) / sweepStepHz + 1).toInt()
+
+    /** Non-null validation error (localised) for the current range, or null if OK. */
+    fun sweepRangeError(): String? {
+        if (sweepStepHz < 1000) return str(R.string.sweep_err_step)
+        if (sweepStopHz < sweepStartHz) return str(R.string.sweep_err_order)
+        val b = sweepBand(sweepStartHz)
+        if (b == 0 || sweepBand(sweepStopHz) != b) return str(R.string.sweep_err_band)
+        if (sweepPointCount > 512) return str(R.string.sweep_err_points)
+        return null
+    }
+
+    fun startSweep() = scope {
+        if (monitorRunning) { engine.log(LogKind.ERROR, "Main monitor is running — stop it first"); return@scope }
+        if (aprsRunning) { engine.log(LogKind.ERROR, "APRS monitor is running — stop it first"); return@scope }
+        if (pktRunning) { engine.log(LogKind.ERROR, "PKT monitor is running — stop it first"); return@scope }
+        val err = sweepRangeError()
+        if (err != null) { engine.log(LogKind.ERROR, err); return@scope }
+        sweepRows.clear()
+        val res = fw.sweepStart(selectedIface, sweepStartHz, sweepStopHz, sweepStepHz, rxbwHz = sweepRxbwHz)
+        sweepRunning = res.ok
+        engine.blockWhileMonitor = res.ok   // shared radio lock; sweep control still passes
+        if (res.ok) engine.log(
+            LogKind.INFO,
+            "Sweep started ${sweepStartHz / 1_000_000.0}–${sweepStopHz / 1_000_000.0} MHz, " +
+                "$sweepPointCount pts",
+        )
+    }
+
+    fun stopSweep() = scope {
+        fw.sweepStop(selectedIface)
+        sweepRunning = false
+        engine.blockWhileMonitor = false
+    }
+
+    fun clearSweep() { sweepRows.clear() }
+
+    private fun onSweepRow(row: SweepLine) {
+        viewModelScope.launch {
+            sweepRows.add(row)
+            if (sweepRows.size > MAX_SWEEP_ROWS) sweepRows.removeAt(0)
+        }
+    }
+
+    /** Write already-encoded image bytes (PNG) to a user-picked folder. */
+    fun saveSweepImage(treeUri: android.net.Uri, bytes: ByteArray) = scope {
+        try {
+            val app = getApplication<Application>()
+            val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(app, treeUri)
+            val name = "spectrum-" +
+                java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                    .format(java.util.Date()) + ".png"
+            val doc = tree?.createFile("image/png", name)
+            if (doc != null) {
+                app.contentResolver.openOutputStream(doc.uri)?.use { it.write(bytes) }
+                engine.log(LogKind.INFO, str(R.string.sweep_saved, name))
+            } else {
+                engine.log(LogKind.ERROR, str(R.string.sweep_save_failed))
+            }
+        } catch (e: Exception) {
+            engine.log(LogKind.ERROR, str(R.string.sweep_save_failed) + ": " + (e.message ?: ""))
+        }
     }
 
     // ---- interpretation ---------------------------------------------------
